@@ -1,0 +1,52 @@
+jobs:
+- job: Default
+  timeoutInMinutes: 300
+  pool:
+    vmImage: Ubuntu-16.04
+  steps:
+  - script: |
+      nproc
+      lscpu
+    displayName: 'Machine info'
+  - script: |
+      sudo chown -R $USER $CONDA
+      . $CONDA/etc/profile.d/conda.sh
+      conda create --yes --quiet --name jwst_eclipse_mapping python=3.7.3 pip
+    displayName: 'Setup conda'
+  - script: |
+      . $CONDA/etc/profile.d/conda.sh
+      conda activate jwst_eclipse_mapping
+      conda install -y -q numpy scipy mkl openblas=0.3.6 theano
+      theano-cache purge
+      pip install -U pip
+      pip install -U setuptools
+      pip install -U pytest
+      pip install -U tqdm
+      pip install -U -r requirements.txt
+      conda install -y -q -c conda-forge tectonic pybind11
+      git clone https://github.com/rodluger/starry
+      cd starry && STARRY_DEBUG=1 python setup.py develop
+      cd .. && python setup.py develop
+    displayName: 'Install dependencies'
+  - script: |
+      . $CONDA/etc/profile.d/conda.sh
+      conda activate jwst_eclipse_mapping
+      pytest -v -s jwst_eclipse_mapping
+    displayName: 'Run tests'
+  - script: |
+      . $CONDA/etc/profile.d/conda.sh
+      conda activate jwst_eclipse_mapping
+      cd $(Build.SourcesDirectory)/paper
+      make 
+    displayName: 'Build the paper'
+  - script: |
+      cd $(Build.SourcesDirectory)
+      git checkout --orphan $(Build.SourceBranchName)-pdf
+      git rm -rf --cached .
+      git add -f paper/paper.pdf
+      git add -f paper/figures/*.pdf
+      git -c user.name='azure' -c user.email='azure' commit -m "building the paper"
+      git push -q -f https://$GITHUB_USER:$GITHUB_API_KEY@github.com/fbartolic/jwst_eclipse_mapping $(Build.SourceBranchName)-pdf
+    displayName: 'Upload the paper'
+    env:
+      GITHUB_API_KEY: $(GITHUB_API_KEY)
