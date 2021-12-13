@@ -1,9 +1,6 @@
 <a href="https://github.com/fbartolic/jwst_eclipse_mapping/actions/workflows/showyourwork.yml">
 <img src="https://github.com/fbartolic/jwst_eclipse_mapping/actions/workflows/showyourwork.yml/badge.svg" alt="Article status"/>
 </a>
-<a href="https://github.com/fbartolic/jwst_eclipse_mapping/raw/clean-start-pdf/arxiv.tar.gz">
-<img src="https://img.shields.io/badge/article-tarball-blue.svg?style=flat" alt="Article tarball"/>
-</a>
 <a href="https://github.com/fbartolic/jwst_eclipse_mapping/raw/clean_start-pdf/dag.pdf">
 <img src="https://img.shields.io/badge/article-dag-blue.svg?style=flat" alt="Article graph"/>
 </a>
