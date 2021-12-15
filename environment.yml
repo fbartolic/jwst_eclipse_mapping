@@ -4,4 +4,12 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python==3.9
+  - cython
+  - numpy
+  - python=3.9
+  - pymc3
+  - matplotlib
+  - netcdf4
+  - pandas
+  - scipy
+  - jupyterlab
