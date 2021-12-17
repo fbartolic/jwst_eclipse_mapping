@@ -1,25 +1,134 @@
 % Define document class
-\documentclass[twocolumn]{aastex631}
+\documentclass[modern]{aastex631}
 
-% Filler text
-\usepackage{blindtext}
+% Bibliography stuff
+\bibliographystyle{aasjournal}
+\setlength\LTcapwidth{\textwidth}
 
 % Begin!
 \begin{document}
 
 % Title
-\title{Just testing.}
-
+\title{
+    \vspace{-3em}
+    \textbf{
+        What can we learn about exoplanet maps in emitted light from photometric observations of secondary eclipses using JWST?
+    }
+}
 % Author list
-\author[0000-0000-0000-0000]{First Author}
+\author[0000-0001-8630-9794]{Fran Bartoli\'c}
+\email{fb90@st-andrews.ac.uk}
+\affil{Centre~for~Exoplanet~Science, SUPA, School~of~Physics~and~Astronomy, University~of~St.~Andrews, St.~Andrews, UK}
+\affil{Center~for~Computational~Astrophysics, Flatiron~Institute, New~York, NY, USA}
+\author[0000-0002-0296-3826]{Rodrigo Luger}
+\author[0000-0002-9328-5652]{Daniel Foreman-Mackey}
+\affil{Center~for~Computational~Astrophysics, Flatiron~Institute, New~York, NY, USA}
+%
 
-% Abstract with filler text
 \begin{abstract}
-    \blindtext
+We investigate the degeneracies involved in the process of reconstructing spatial maps of 
+exoplanets from secondary eclipse light curves in emitted light, and test the feasibility of 
+spatially resolving localized features on the daysides of Hot Jupiters using JWST.
+We find that even with noiseless light curves and assuming fixed orbital parameters, there are 
+interesting degeneracies in the structure of inferred maps. 
+With realistic light curves, differentiating between a homogenous spot and finer spatial 
+structure (due to, for instance, the presence of large storms and clouds) is highly dependant 
+on the intensity contrast between the feature and the background. 
+There is a signal-to-noise dependent threshold which needs to be reached so that the ingress 
+and egress parts of the light curve start constraining higher order modes of the surface map.
+Without reaching this threshold there is no hope of constraining finer structure on the dayside
+of the planet and the information content about the surface is dominated by the phase curve 
+signal and the eclipse depth.
+We find that even for the brightest Hot Jupiters, the signal-to-noise 
+ratio of the simulated JWST light curves isn't high enough to provide much information about 
+the surface beyond excluding the presence of very high contrast features.
 \end{abstract}
 
-% Main body with filler text
 \section{Introduction}
-\Blindtext[4]
+\label{sec:introduction}
+One of the most notable advances in exoplanetary science over the past decade has been the ability
+to reconstruct coarse two-dimensional spatial maps of exoplanets using high precision phase 
+curves and secondary eclipse observations.
+\cite{knutson2007}, \cite{majeau2012b} and \cite{dewit2012} used Spitzer mid-infrared observations 
+of secondary eclipses of the Hot Jupiter HD189733b and found that surface emission is best 
+described by the presence of a large hot spot on the dayside of the planet which is 
+longitudinally offset from the substellar point. 
+Similarly, \cite{stevenson2014} produced temperature maps of the Hot Jupiter WASP-43b, 
+\cite{demory2013} mapped the Hot Jupiter Kepler-7b in reflected light and \cite{demory2016a} 
+mapped the thermal emission from the Super Earth 55 Cancri e, although all of these only 
+captured longitudinal variations in intensity.
+
+Real exoplanet atmospheres of are certain to have three-dimensional spatial 
+inhomogeneities in emission more complex than a single hot spot due to the presence of clouds, zonal 
+jets, storms, waves etc. \citep{showman2020}.
+Recent high resolution simulations of Hot Jupiter atmospheres by \cite{cho2021} which were able 
+to capture smaller scale turbulence show the presence of storms at a range of scales, including 
+planetary scales, with quasi-periodic time variability and multiple equilibrium cycles.
+These atmospheric phenomena should result in spatial variation in the intensity of emitted 
+and reflected light across the visible disc of the planet which is potentially observable.
+
+There have been significant advances in statistical modeling of phase curves and eclipse light
+curves in recent years.
+Most notably, \cite{luger2019a} introduced the \textsf{starry} algorithm which enables analytic
+computation of phase curves and occultation light curves for bodies with arbitrary emission maps 
+expressed in a spherical harmonic basis and\cite{luger2021d} expanded the algorithm for the (considerably more complicated) case of 
+reflected light.
+\cite{luger2021e} 
+
+of bodies whose emission surface is 
+expanded in a basis of spherical harmonics. 
+
+
+In this paper, we investigate under which conditions it possible to recover more complex 
+spatial features than large hot spots. 
+We focus on emitted light from tidally locked planets and ignore uncertainties in the 
+orbital elements.  
+We start by describing the degeneracies inherent in the eclipse mapping problem even at 
+infinite signal-to-noise and then investigate the relationship between noise and information 
+content of phase curves and eclipse light curves. 
+
+
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Model}
+\label{ssec:model}
+We use the \textsf{starry} mapping framework (CITE) to compute eclipse light curves of a simulated planet with thermal surface emission.
+\textsf{starry} enables fast computation of occultation (eclipse) light curves in both emitted and reflected light by analytically integrating the flux over the planet and the stellar disc 
+Most importantly, \textsf{starry} 
+
+
+To compute eclipse light curves 
+\section{Results}
+\label{sec:results}
+
+\subsection{Degeneracies}
+\label{ssec:degeneracies}
+
+
+\begin{figure}[t!]
+    \begin{centering}
+    \includegraphics[width=\linewidth]{figures/preimages.png}
+    \caption{}{%
+       \label{fig:preimages}
+    }
+    \end{centering}
+\end{figure}
+
+
+
+
+
+\section{Discussion}
+\label{sec:discussion}
+
+
+% Bibliography 
+\bibliography{bib}
+
+
+\appendix
+\section{Appendix 1}
+\clearpage
 
 \end{document}
