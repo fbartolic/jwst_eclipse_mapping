@@ -12,29 +12,17 @@ from scipy.special import legendre as P
 from numba import jit
 
 import starry
-from starry._plotting import (
-    get_moll_latitude_lines,
-    get_moll_longitude_lines,
-)
 
+# from starry._plotting import (
+#    get_moll_latitude_lines,
+#    get_moll_longitude_lines,
+# )
 
-from jax import random
-import numpyro
-from numpyro.infer import SVI
-from numpyro.infer.autoguide import AutoLaplaceApproximation
-from numpyro import optim
-from numpyro.infer.elbo import Trace_ELBO
-
-import pymc3 as pm
-import pymc3_ext as pmx
-import arviz as az
 
 
 starry.config.lazy = False
 starry.config.quiet = True
 
-numpyro.enable_x64(True)
-numpyro.set_host_device_count(4)
 
 HOMEPATH = os.path.abspath(os.path.split(__file__)[0])
 
@@ -518,172 +506,172 @@ def add_band(map, amp, relative=True, sigma=0.1, lat=0.0):
 #
 
 
-def compute_design_matrix(t, params_p, params_s, texp, ydeg):
-    # Star map parameters
-    star = starry.Primary(
-        starry.Map(ydeg=1, udeg=2),
-        r=params_s["r"].value,
-        m=params_s["m"].value,
-        length_unit=u.Rsun,
-        mass_unit=u.Msun,
-    )
-    #    star.map[1] = params_s["u"][0]
-    #    star.map[2] = params_s["u"][1]
+#def compute_design_matrix(t, params_p, params_s, texp, ydeg):
+#    # Star map parameters
+#    star = starry.Primary(
+#        starry.Map(ydeg=1, udeg=2),
+#        r=params_s["r"].value,
+#        m=params_s["m"].value,
+#        length_unit=u.Rsun,
+#        mass_unit=u.Msun,
+#    )
+#    #    star.map[1] = params_s["u"][0]
+#    #    star.map[2] = params_s["u"][1]
+#
+#    planet = starry.Secondary(
+#        starry.Map(ydeg=ydeg, inc=params_p["inc"].value,),
+#        #        ecc=params_p["ecc"],
+#        #        omega=params_p["omega"].value,
+#        r=params_p["r"].value,
+#        porb=params_p["porb"].value,
+#        prot=params_p["prot"].value,
+#        t0=params_p["t0"].value,
+#        inc=params_p["inc"].value,
+#        theta0=180,
+#        length_unit=u.Rsun,
+#        angle_unit=u.deg,
+#        time_unit=u.d,
+#    )
+#    sys_fit = starry.System(star, planet, texp=(texp.to(u.d)).value)
+#
+#    # Design matrix
+#    A_full = sys_fit.design_matrix(t)
+#    A = A_full[:, 4:]
+#
+#    return A, A_full
+#
 
-    planet = starry.Secondary(
-        starry.Map(ydeg=ydeg, inc=params_p["inc"].value,),
-        #        ecc=params_p["ecc"],
-        #        omega=params_p["omega"].value,
-        r=params_p["r"].value,
-        porb=params_p["porb"].value,
-        prot=params_p["prot"].value,
-        t0=params_p["t0"].value,
-        inc=params_p["inc"].value,
-        theta0=180,
-        length_unit=u.Rsun,
-        angle_unit=u.deg,
-        time_unit=u.d,
-    )
-    sys_fit = starry.System(star, planet, texp=(texp.to(u.d)).value)
+# def plot_model(
+#    lc,
+#    ftrue_unif,
+#    samples=None,
+#    map_params=None,
+#    fig_title=None,
+#    inner_pad=2,
+#    outer_pad=3,
+#    ylim=None,
+# ):
+#    fig, ax = plt.subplots(
+#        2, 2, figsize=(11, 7), gridspec_kw={"wspace": 0.1, "height_ratios": [3, 1]},
+#    )
+#    for a in ax[0, :]:
+#        a.errorbar(
+#            lc["t"] * u.d.to(u.min),
+#            lc["fobs"],
+#            lc["ferr"],
+#            fmt="o",
+#            color="black",
+#            alpha=0.1,
+#        )
+#
+#    # Residuals
+#    if map_params is not None:
+#        res = lc["fobs"] - map_params["fpred"]
+#    else:
+#        res = lc["fobs"] - np.median(samples["fpred"], axis=0)
+#
+#    print("chi-sq: ", np.sum(res ** 2 / np.array(lc["ferr"]) ** 2))
+#
+#    for a in ax[1, :]:
+#        a.errorbar(
+#            lc["t"] * u.d.to(u.min),
+#            res / lc["ferr"][0],
+#            lc["ferr"] / lc["ferr"][0],
+#            fmt="o",
+#            color="black",
+#            alpha=0.1,
+#        )
+#
+#    for a in ax[:, 0]:
+#        a.set_xlim(
+#            lc["t"][lc["mask_in"]][0] * u.d.to(u.min) - outer_pad,
+#            lc["t"][lc["mask_in"]][-1] * u.d.to(u.min) + inner_pad,
+#        )
+#    for a in ax[:, 1]:
+#        a.set_xlim(
+#            lc["t"][lc["mask_eg"]][0] * u.d.to(u.min) - inner_pad,
+#            lc["t"][lc["mask_eg"]][-1] * u.d.to(u.min) + outer_pad,
+#        )
+#
+#    for a in ax[1, :]:
+#        a.set_xlabel("time [minutes]")
+#        a.set(ylim=(-4, 4))
+#
+#    for a in ax[0, :]:
+#        a.set_xticklabels([])
+#
+#    # Make broken axis
+#    for a in ax:
+#        a[0].spines["right"].set_visible(False)
+#        a[1].spines["left"].set_visible(False)
+#        a[1].tick_params(axis="y", colors=(0, 0, 0, 0))
+#
+#        d = 0.01
+#        kwargs = dict(transform=a[0].transAxes, color="k", clip_on=False)
+#        a[0].plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)
+#        a[0].plot((1 - d, 1 + d), (-d, +d), **kwargs)
+#
+#        kwargs.update(transform=a[1].transAxes)
+#        a[1].plot((-d, +d), (1 - d, 1 + d), **kwargs)
+#        a[1].plot((-d, +d), (-d, +d), **kwargs)
+#
+#    if map_params is not None:
+#        for a in ax[0, :]:
+#            a.plot(lc["t"] * u.d.to(u.min), map_params["fpred"], "C1-", lw=2.0)
+#    else:
+#        for i in range(20):
+#            for a in ax[0, :]:
+#                a.plot(
+#                    lc["t"] * u.d.to(u.min),
+#                    samples["fpred"][i],
+#                    "C1-",
+#                    lw=2.0,
+#                    alpha=0.1,
+#                )
+#
+#    for a in ax[0, :]:
+#        a.plot(lc["t"] * u.d.to(u.min), ftrue_unif, "C0-")
+#        a.set_ylim(ylim)
+#
+#    for a in ax.reshape((-1)):
+#        a.grid(alpha=0.5)
+#
+#    ax[0, 0].set(ylabel="Flux")
+#    ax[1, 0].set(ylabel="Res")
+#
+#    fig.suptitle(fig_title, fontsize=16)
+#
 
-    # Design matrix
-    A_full = sys_fit.design_matrix(t)
-    A = A_full[:, 4:]
-
-    return A, A_full
-
-
-def plot_model(
-    lc,
-    ftrue_unif,
-    samples=None,
-    map_params=None,
-    fig_title=None,
-    inner_pad=2,
-    outer_pad=3,
-    ylim=None,
-):
-    fig, ax = plt.subplots(
-        2, 2, figsize=(11, 7), gridspec_kw={"wspace": 0.1, "height_ratios": [3, 1]},
-    )
-    for a in ax[0, :]:
-        a.errorbar(
-            lc["t"] * u.d.to(u.min),
-            lc["fobs"],
-            lc["ferr"],
-            fmt="o",
-            color="black",
-            alpha=0.1,
-        )
-
-    # Residuals
-    if map_params is not None:
-        res = lc["fobs"] - map_params["fpred"]
-    else:
-        res = lc["fobs"] - np.median(samples["fpred"], axis=0)
-
-    print("chi-sq: ", np.sum(res ** 2 / np.array(lc["ferr"]) ** 2))
-
-    for a in ax[1, :]:
-        a.errorbar(
-            lc["t"] * u.d.to(u.min),
-            res / lc["ferr"][0],
-            lc["ferr"] / lc["ferr"][0],
-            fmt="o",
-            color="black",
-            alpha=0.1,
-        )
-
-    for a in ax[:, 0]:
-        a.set_xlim(
-            lc["t"][lc["mask_in"]][0] * u.d.to(u.min) - outer_pad,
-            lc["t"][lc["mask_in"]][-1] * u.d.to(u.min) + inner_pad,
-        )
-    for a in ax[:, 1]:
-        a.set_xlim(
-            lc["t"][lc["mask_eg"]][0] * u.d.to(u.min) - inner_pad,
-            lc["t"][lc["mask_eg"]][-1] * u.d.to(u.min) + outer_pad,
-        )
-
-    for a in ax[1, :]:
-        a.set_xlabel("time [minutes]")
-        a.set(ylim=(-4, 4))
-
-    for a in ax[0, :]:
-        a.set_xticklabels([])
-
-    # Make broken axis
-    for a in ax:
-        a[0].spines["right"].set_visible(False)
-        a[1].spines["left"].set_visible(False)
-        a[1].tick_params(axis="y", colors=(0, 0, 0, 0))
-
-        d = 0.01
-        kwargs = dict(transform=a[0].transAxes, color="k", clip_on=False)
-        a[0].plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)
-        a[0].plot((1 - d, 1 + d), (-d, +d), **kwargs)
-
-        kwargs.update(transform=a[1].transAxes)
-        a[1].plot((-d, +d), (1 - d, 1 + d), **kwargs)
-        a[1].plot((-d, +d), (-d, +d), **kwargs)
-
-    if map_params is not None:
-        for a in ax[0, :]:
-            a.plot(lc["t"] * u.d.to(u.min), map_params["fpred"], "C1-", lw=2.0)
-    else:
-        for i in range(20):
-            for a in ax[0, :]:
-                a.plot(
-                    lc["t"] * u.d.to(u.min),
-                    samples["fpred"][i],
-                    "C1-",
-                    lw=2.0,
-                    alpha=0.1,
-                )
-
-    for a in ax[0, :]:
-        a.plot(lc["t"] * u.d.to(u.min), ftrue_unif, "C0-")
-        a.set_ylim(ylim)
-
-    for a in ax.reshape((-1)):
-        a.grid(alpha=0.5)
-
-    ax[0, 0].set(ylabel="Flux")
-    ax[1, 0].set(ylabel="Res")
-
-    fig.suptitle(fig_title, fontsize=16)
-
-
-def fit_model_pm(
-    model, init_vals=None, nwarmup=1000, nsamples=1000, nchains=1, fit_map=False,
-):
-    if not fit_map:
-        with model:
-            trace = pm.sample(
-                draws=nsamples,
-                start=init_vals,
-                init="adapt_diag",
-                chains=nchains,
-                cores=nchains,
-                target_accept=0.99,
-            )
-
-            prior = pm.sample_prior_predictive()
-            posterior_predictive = pm.sample_posterior_predictive(trace)
-
-            pm_data = az.from_pymc3(
-                trace=trace, prior=prior, posterior_predictive=posterior_predictive,
-            )
-
-        return trace, pm_data
-
-    else:
-        with model:
-            start = pmx.optimize(start=model.test_point, vars=[model.fs_delta],)
-            map_params = pmx.optimize(start=start)
-
-        return map_params
-
+# def fit_model_pm(
+#    model, init_vals=None, nwarmup=1000, nsamples=1000, nchains=1, fit_map=False,
+# ):
+#    if not fit_map:
+#        with model:
+#            trace = pm.sample(
+#                draws=nsamples,
+#                start=init_vals,
+#                init="adapt_diag",
+#                chains=nchains,
+#                cores=nchains,
+#                target_accept=0.99,
+#            )
+#
+#            prior = pm.sample_prior_predictive()
+#            posterior_predictive = pm.sample_posterior_predictive(trace)
+#
+#            pm_data = az.from_pymc3(
+#                trace=trace, prior=prior, posterior_predictive=posterior_predictive,
+#            )
+#
+#        return trace, pm_data
+#
+#    else:
+#        with model:
+#            start = pmx.optimize(start=model.test_point, vars=[model.fs_delta],)
+#            map_params = pmx.optimize(start=start)
+#
+#        return map_params
+#
 
 # def fit_numpyro_model(
 #    model, init_vals=None, nwarmup=1000, nsamples=1000, nchains=1,
@@ -770,37 +758,37 @@ def fit_model_pm(
 #
 
 
-def plot_grid_lines(ax, alpha=0.6):
-    """
-    Code from https://github.com/rodluger/starry/blob/0546b4e445f6570b9a1cf6e33068e01a96ecf20f/starry/maps.py.
-    """
-    ax.axis("off")
-
-    borders = []
-    x = np.linspace(-2 * np.sqrt(2), 2 * np.sqrt(2), 10000)
-    y = np.sqrt(2) * np.sqrt(1 - (x / (2 * np.sqrt(2))) ** 2)
-    borders += [ax.fill_between(x, 1.1 * y, y, color="w", zorder=-1)]
-    borders += [ax.fill_betweenx(0.5 * x, 2.2 * y, 2 * y, color="w", zorder=-1)]
-    borders += [ax.fill_between(x, -1.1 * y, -y, color="w", zorder=-1)]
-    borders += [ax.fill_betweenx(0.5 * x, -2.2 * y, -2 * y, color="w", zorder=-1)]
-
-    x = np.linspace(-2 * np.sqrt(2), 2 * np.sqrt(2), 10000)
-    a = np.sqrt(2)
-    b = 2 * np.sqrt(2)
-    y = a * np.sqrt(1 - (x / b) ** 2)
-    borders = [None, None]
-    (borders[0],) = ax.plot(x, y, "k-", alpha=1, lw=1.5)
-    (borders[1],) = ax.plot(x, -y, "k-", alpha=1, lw=1.5)
-    lats = get_moll_latitude_lines()
-    latlines = [None for n in lats]
-    for n, l in enumerate(lats):
-        (latlines[n],) = ax.plot(l[0], l[1], "k-", lw=0.8, alpha=alpha, zorder=100)
-    lons = get_moll_longitude_lines()
-    lonlines = [None for n in lons]
-    for n, l in enumerate(lons):
-        (lonlines[n],) = ax.plot(l[0], l[1], "k-", lw=0.8, alpha=alpha, zorder=100)
-    ax.fill_between(x, y, y + 10, color="white")
-    ax.fill_between(x, -(y + 10), -y, color="white")
+# def plot_grid_lines(ax, alpha=0.6):
+#    """
+#    Code from https://github.com/rodluger/starry/blob/0546b4e445f6570b9a1cf6e33068e01a96ecf20f/starry/maps.py.
+#    """
+#    ax.axis("off")
+#
+#    borders = []
+#    x = np.linspace(-2 * np.sqrt(2), 2 * np.sqrt(2), 10000)
+#    y = np.sqrt(2) * np.sqrt(1 - (x / (2 * np.sqrt(2))) ** 2)
+#    borders += [ax.fill_between(x, 1.1 * y, y, color="w", zorder=-1)]
+#    borders += [ax.fill_betweenx(0.5 * x, 2.2 * y, 2 * y, color="w", zorder=-1)]
+#    borders += [ax.fill_between(x, -1.1 * y, -y, color="w", zorder=-1)]
+#    borders += [ax.fill_betweenx(0.5 * x, -2.2 * y, -2 * y, color="w", zorder=-1)]
+#
+#    x = np.linspace(-2 * np.sqrt(2), 2 * np.sqrt(2), 10000)
+#    a = np.sqrt(2)
+#    b = 2 * np.sqrt(2)
+#    y = a * np.sqrt(1 - (x / b) ** 2)
+#    borders = [None, None]
+#    (borders[0],) = ax.plot(x, y, "k-", alpha=1, lw=1.5)
+#    (borders[1],) = ax.plot(x, -y, "k-", alpha=1, lw=1.5)
+#    lats = get_moll_latitude_lines()
+#    latlines = [None for n in lats]
+#    for n, l in enumerate(lats):
+#        (latlines[n],) = ax.plot(l[0], l[1], "k-", lw=0.8, alpha=alpha, zorder=100)
+#    lons = get_moll_longitude_lines()
+#    lonlines = [None for n in lons]
+#    for n, l in enumerate(lons):
+#        (lonlines[n],) = ax.plot(l[0], l[1], "k-", lw=0.8, alpha=alpha, zorder=100)
+#    ax.fill_between(x, y, y + 10, color="white")
+#    ax.fill_between(x, -(y + 10), -y, color="white")
 
 
 # def plot_pixel_map(ydeg_inf, p, s=30):
