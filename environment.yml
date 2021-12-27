@@ -18,4 +18,3 @@ dependencies:
   - numba
   - jinja2
   - mamba==0.17.0
-  - snakemake-minimal
