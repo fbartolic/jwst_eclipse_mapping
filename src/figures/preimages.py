@@ -3,88 +3,19 @@ import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib import colors
 
-from scipy.special import legendre as P
-
 import starry
 import astropy.units as u
+
+from utils import add_band
+
 
 np.random.seed(42)
 starry.config.lazy = False
 
-def BInv(ydeg=15, npts=1000, eps=1e-9, sigma=15, **kwargs):
-    """
-    Return the matrix B+. This expands the
-    band profile `b` in Legendre polynomials.
-    """
-    theta = np.linspace(0, np.pi, npts)
-    cost = np.cos(theta)
-    B = np.hstack(
-        [np.sqrt(2 * l + 1) * P(l)(cost).reshape(-1, 1) for l in range(ydeg + 1)]
-    )
-    BInv = np.linalg.solve(B.T @ B + eps * np.eye(ydeg + 1), B.T)
-    l = np.arange(ydeg + 1)
-    i = l * (l + 1)
-    S = np.exp(-0.5 * i / sigma ** 2)
-    BInv = S[:, None] * BInv
-    return BInv
 
-
-def get_band_ylm(ydeg, nw, amp, lat, sigma):
-    """
-    Get the Ylm expansion of a Gassian band at fixed latitude.
-    """
-    # off center Gaussian spot in Polar frame
-    gauss = (
-        lambda x, mu, sig: 1
-        / (sig * np.sqrt(2 * np.pi))
-        * np.exp(-((x - mu) ** 2) / (2 * sig ** 2))
-    )
-
-    theta = np.linspace(0, np.pi, 1000)
-    b = gauss(theta, np.pi / 2 - lat, sigma)
-
-    yband_m0 = BInv(ydeg=ydeg) @ b
-    yband_m0 /= yband_m0[0]
-
-    map = starry.Map(ydeg=ydeg, nw=nw)
-
-    if nw is None:
-        map[1:, 0] = yband_m0[1:]
-    else:
-        map[1:, 0, :] = np.repeat(yband_m0[1:, None], nw, axis=1)
-
-    map.rotate([1, 0, 0], -90.0)
-
-    return amp * map._y
-
-
-def add_band(map, amp, relative=True, sigma=0.1, lat=0.0):
-    """
-    Add an azimuthally symmetric band to map.
-    """
-    if amp is not None:
-        amp, _ = map._math.vectorize(map._math.cast(amp), np.ones(map.nw))
-        # Normalize?
-        if not relative:
-            amp /= map.amp
-
-    # Parse remaining kwargs
-    sigma, lat = map._math.cast(sigma, lat)
-
-    # Get the Ylm expansion of the band
-    yband = get_band_ylm(map.ydeg, map.nw, amp, lat * map._angle_factor, sigma)
-    y_new = map._y + yband
-    amp_new = map._amp * y_new[0]
-    y_new /= y_new[0]
-
-    # Update the map and the normalizing amplitude
-    map._y = y_new
-    map._amp = amp_new
-
-    return map
-
-
-def get_preimage(map_planet, b, ecc=0.0, Omega=0.0, include_phase_curves=False):
+def get_preimage(
+    map_planet, b, ecc=0.0, Omega=0.0, omega=0.0, include_phase_curves=False
+):
     map = starry.Map(map_planet.ydeg)
     map[1:, :] = map_planet[1:, :]
     map.amp = map_planet.amp
@@ -98,10 +29,7 @@ def get_preimage(map_planet, b, ecc=0.0, Omega=0.0, include_phase_curves=False):
 
     map_star = starry.Map(ydeg=0)
     map_star.amp = 1
-    star = starry.Primary(
-        map_star,
-        r=Rstar,
-    )
+    star = starry.Primary(map_star, r=Rstar,)
 
     planet = starry.Secondary(
         map,
@@ -110,7 +38,9 @@ def get_preimage(map_planet, b, ecc=0.0, Omega=0.0, include_phase_curves=False):
         prot=Porb,
         inc=i.to(u.deg),
         Omega=Omega,
+        omega=omega,
         ecc=ecc,
+        t0=Porb / 2,
         theta0=180.0,
     )
 
@@ -121,29 +51,34 @@ def get_preimage(map_planet, b, ecc=0.0, Omega=0.0, include_phase_curves=False):
     sys = starry.System(star, planet)
 
     # Generate high cadence light excluding transit
-    t0 = -Porb / 2
+    t0 = 0.0 * u.d
     texp = 5 * u.s
-    delta_t = 0.4 * u.d
+    delta_t = 0.5 * u.d
     npts = int((2 * delta_t.to(u.s)) / (texp))  # total number of data points
-    t = np.linspace(t0.value - delta_t.value, t0.value + delta_t.value, npts)
+    t = np.linspace(-delta_t.value, +delta_t.value, npts)
 
-    mask1 = t < t0.value + 0.07
-    mask2 = t > t0.value - 0.07
-    mask_ecl = np.logical_and(mask1, mask2)
-    t_ = t[mask_ecl]
+    # Masks for eclipse, transit and phase curves
+    mask_ecl = np.logical_and(t < 0.07, t > -0.07)
 
-    if include_phase_curves:
-        t_ = t
+    if not include_phase_curves:
+        t = t[mask_ecl]
 
-    A = sys.design_matrix(t_)
+    A = sys.design_matrix(t)
     x_com = np.concatenate([map_star._y * map_star.amp, map._y * map.amp])
     flux = (A @ x_com[:, None]).reshape(-1)
-    ferr = 0.1 * np.ones_like(flux)
-    #     fobs = flux + np.random.normal(0, ferr[0], size=len(flux))
 
-    x_preimage, cho_cov = starry.linalg.solve(
-        A, flux, C=ferr ** 2, L=0.5 ** 2, N=A.shape[1]
-    )
+    ferr = 1e-6 * np.random.rand(len(flux))
+    fobs = flux + np.random.normal(0, ferr[0], size=len(flux))
+
+    # Prior variance on map coefficients
+    L_prim = np.ones(sys.primary.map.N)
+    L_prim[1:] = 1e-02 ** 2
+    L_sec = 1e-02 * np.ones(sys.secondaries[0].map.N)
+    L_sec[1:] = (1e-2) ** 2
+
+    L = np.concatenate([L_prim, L_sec])
+
+    x_preimage, cho_cov = starry.linalg.solve(A, fobs, C=1e-03 ** 2, L=L, N=A.shape[1])
 
     return x_preimage[1:]
 
@@ -152,10 +87,7 @@ def get_preimage(map_planet, b, ecc=0.0, Omega=0.0, include_phase_curves=False):
 ydeg = 20
 map_planet1 = starry.Map(ydeg=ydeg)
 map_planet1.spot(
-    contrast=-8,
-    radius=15,
-    lat=0,
-    lon=0.0,
+    contrast=-10, radius=15, lat=0, lon=0.0,
 )
 
 # Ellipsoidal spot
@@ -171,49 +103,31 @@ map_planet2.load(Z, smoothing=1.5 / 20, force_psd=True)
 # Two spots equal longitude
 map_planet3 = starry.Map(ydeg=ydeg)
 map_planet3.spot(
-    contrast=-8,
-    radius=15,
-    lat=30,
-    lon=0.0,
+    contrast=-10, radius=15, lat=30, lon=0.0,
 )
 
 map_planet3.spot(
-    contrast=-4,
-    radius=15,
-    lat=-30,
-    lon=0.0,
+    contrast=-5, radius=15, lat=-30, lon=0.0,
 )
 
 # Two spots equal latitude
 map_planet4 = starry.Map(ydeg=ydeg)
 map_planet4.spot(
-    contrast=-8,
-    radius=15,
-    lat=0.0,
-    lon=-30,
+    contrast=-10, radius=15, lat=0.0, lon=-30,
 )
 
 map_planet4.spot(
-    contrast=-4,
-    radius=15,
-    lat=0.0,
-    lon=30,
+    contrast=-5, radius=15, lat=0.0, lon=30,
 )
 
 # Banded planet
 map_planet5 = starry.Map(ydeg=ydeg)
 map_planet5.spot(
-    contrast=-5,
-    radius=45,
-    lat=90.0,
-    lon=0,
+    contrast=-5, radius=45, lat=90.0, lon=0,
 )
 
 map_planet5.spot(
-    contrast=-5,
-    radius=45,
-    lat=-90.0,
-    lon=0,
+    contrast=-5, radius=45, lat=-90.0, lon=0,
 )
 
 # Narrow bands
@@ -233,12 +147,7 @@ preim6_list = [get_preimage(map_planet6, b) for b in b_]
 
 
 def make_plot(
-    preim1_list,
-    preim2_list,
-    preim3_list,
-    preim4_list,
-    preim5_list,
-    preim6_list,
+    preim1_list, preim2_list, preim3_list, preim4_list, preim5_list, preim6_list,
 ):
     fig = plt.figure(figsize=(10, 9))
 
@@ -287,8 +196,6 @@ def make_plot(
 
     map = starry.Map(ydeg)
     resol = 150
-    resol_mini = 50
-    norm = colors.Normalize(vmin=-0.02)
 
     # Spot
     norm1 = colors.Normalize(vmin=0.3, vmax=2.0)
@@ -297,7 +204,7 @@ def make_plot(
         x_preim = preim1_list[i]
         map[1:, :] = x_preim[1:] / x_preim[0]
         map.amp = x_preim[0]
-        map.show(ax=a, cmap="OrRd", norm=norm1, res=resol_mini)
+        map.show(ax=a, cmap="OrRd", norm=norm1, res=resol)
 
     # Elipse
     norm2 = colors.Normalize(vmin=0.1, vmax=0.8)
@@ -306,7 +213,7 @@ def make_plot(
         x_preim = preim2_list[i]
         map[1:, :] = x_preim[1:] / x_preim[0]
         map.amp = x_preim[0]
-        map.show(ax=a, cmap="OrRd", norm=norm2, res=resol_mini)
+        map.show(ax=a, cmap="OrRd", norm=norm2, res=resol)
 
     # Spots at same latitude
     norm3 = colors.Normalize(vmin=0.3, vmax=2.0)
@@ -315,7 +222,7 @@ def make_plot(
         x_preim = preim3_list[i]
         map[1:, :] = x_preim[1:] / x_preim[0]
         map.amp = x_preim[0]
-        map.show(ax=a, cmap="OrRd", norm=norm3, res=resol_mini)
+        map.show(ax=a, cmap="OrRd", norm=norm3, res=resol)
 
     # Spots at the same longitude
     norm4 = norm3
@@ -324,16 +231,16 @@ def make_plot(
         x_preim = preim4_list[i]
         map[1:, :] = x_preim[1:] / x_preim[0]
         map.amp = x_preim[0]
-        map.show(ax=a, cmap="OrRd", norm=norm4, res=resol_mini)
+        map.show(ax=a, cmap="OrRd", norm=norm4, res=resol)
 
     # Banded planet
-    norm5 = colors.Normalize(vmin=0.4, vmax=2.0)
+    norm5 = colors.Normalize(vmin=0.2, vmax=2.0)
     map_planet5.show(ax=ax_sim[4], cmap="OrRd", norm=norm5, res=resol)
     for i, a in enumerate(ax5):
         x_preim = preim5_list[i]
         map[1:, :] = x_preim[1:] / x_preim[0]
         map.amp = x_preim[0]
-        map.show(ax=a, cmap="OrRd", norm=norm5, res=resol_mini)
+        map.show(ax=a, cmap="OrRd", norm=norm5, res=resol)
 
     # Earth
     norm6 = colors.Normalize(vmin=0.1, vmax=1.0)
@@ -342,7 +249,7 @@ def make_plot(
         x_preim = preim6_list[i]
         map[1:, :] = x_preim[1:] / x_preim[0]
         map.amp = x_preim[0]
-        map.show(ax=a, cmap="OrRd", norm=norm6, res=resol_mini)
+        map.show(ax=a, cmap="OrRd", norm=norm6, res=resol)
 
     # Geometry
     for i in range(len(b_)):
@@ -379,22 +286,17 @@ def make_plot(
     )
     fig.text(
         0.53,
-        0.67,
-        "Recovered maps (noiseless observations)",
+        0.69,
+        "Reconstructed maps (noiseless observations)",
         ha="center",
         va="center",
         fontweight="bold",
         fontsize=16,
     )
 
-    fig.savefig("preimages.png", bbox_inches="tight", dpi=200)
+    fig.savefig("preimages.pdf", bbox_inches="tight", dpi=100)
 
 
 make_plot(
-    preim1_list,
-    preim2_list,
-    preim3_list,
-    preim4_list,
-    preim5_list,
-    preim6_list,
+    preim1_list, preim2_list, preim3_list, preim4_list, preim5_list, preim6_list,
 )

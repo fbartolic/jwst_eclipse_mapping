@@ -5,11 +5,17 @@ channels:
   - conda-forge
 dependencies:
   - cython
-  - numpy
+  - numpy==1.20
   - python=3.9
   - pymc3
+  - starry
   - matplotlib
   - netcdf4
   - pandas
   - scipy
   - jupyterlab
+  - black
+  - numba
+  - jinja2
+  - mamba==0.17.0
+  - snakemake-minimal
