@@ -9,7 +9,7 @@ dependencies:
   - python=3.9
   - pymc3
   - astropy
-  - starry
+  - starry==1.2.0
   - matplotlib
   - netcdf4
   - pandas
