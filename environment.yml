@@ -9,7 +9,6 @@ dependencies:
   - python=3.9
   - pymc3
   - astropy
-  - starry==1.2.0
   - matplotlib
   - netcdf4
   - pandas
@@ -19,3 +18,5 @@ dependencies:
   - numba
   - jinja2
   - mamba==0.17.0
+  - pip:
+    - starry==1.2
