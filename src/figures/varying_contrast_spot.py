@@ -1,5 +1,4 @@
 import numpy as np
-import pickle as pkl
 import starry
 import astropy.units as u
 from scipy.optimize import brent
@@ -19,7 +18,7 @@ def compute_simulated_lightcurve(
     # Initialize star map
     map_star = starry.Map(ydeg=1)
 
-    # Ratio of star and planet map *ampliudes* needs to be proportional to
+    # Ratio of star and planet map *amplitudes* needs to be proportional to
     # (Rp/Rs)**2 so we need to multiply the planet map amplitude with that factor
     map_planet.amp *= (radius_ratio) ** 2
 
