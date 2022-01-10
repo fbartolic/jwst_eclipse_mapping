@@ -38,7 +38,7 @@ def compute_simulated_lightcurve(
 
     planet = starry.Secondary(
         map_planet,
-        r=params_p["r"],
+        r=radius_ratio * params_s["r"],
         porb=params_p["porb"],
         prot=params_p["porb"],
         t0=t0,
