@@ -2,6 +2,7 @@ import numpy as np
 import pickle as pkl
 import starry
 import astropy.units as u
+
 from matplotlib import colors
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -59,7 +60,7 @@ def simulation_snapshot_to_ylm(path, wavelength_grid, ydeg=25, temp_offset=-450)
 
 
 def compute_simulated_lightcurve(
-    map_star, map_planet, params_s, params_p, filt, wavelength_grid, texp, snr=16
+    map_star, map_planet, params_s, params_p, filt, wavelength_grid, texp,
 ):
     # Interpolate filter throughput
     thr_interp = np.interp(wavelength_grid, filt[0], filt[1])
@@ -95,7 +96,6 @@ def compute_simulated_lightcurve(
 
     # Compute flux
     A = sys.design_matrix(t)
-    # fsim_spectral = sys.flux(t)
     x = np.concatenate([map_star.amp * map_star._y, map_planet.amp * map_planet._y])
     fsim_spectral = np.tensordot(A, x, axes=1)
 
@@ -116,12 +116,12 @@ def compute_simulated_lightcurve(
     return t, fsim, sys
 
 
-def initialize_featureless_map(T_star, wavelength_grid, ydeg=1):
+def initialize_featureless_map(T, wavelength_grid, ydeg=1):
     # Initialize star map
-    map_star = starry.Map(ydeg=1, nw=len(wavelength_grid))
-    Llam = (4 * np.pi) * np.pi * planck(T_star, wavelength_grid).value
-    map_star.amp = Llam / 4
-    return map_star
+    map = starry.Map(ydeg=1, nw=len(wavelength_grid))
+    Llam = (4 * np.pi) * np.pi * planck(T, wavelength_grid).value
+    map.amp = Llam / 4
+    return map
 
 
 def get_lower_order_map(map, ydeg=2):
@@ -141,10 +141,12 @@ filter_name = "f444w"
 
 # Load orbital and system parameters
 with open(
-    f"../data/system_parameters/{planet}/orbital_params_planet.p", "rb"
+    f"../../data/system_parameters/{planet}/orbital_params_planet.p", "rb"
 ) as handle:
     params_p = pkl.load(handle)
-with open(f"../data/system_parameters/{planet}/orbital_params_star.p", "rb") as handle:
+with open(
+    f"../../data/system_parameters/{planet}/orbital_params_star.p", "rb"
+) as handle:
     params_s = pkl.load(handle)
 
 # Load filter
@@ -162,7 +164,7 @@ ydeg = 25
 
 snapshots_ylm = [
     simulation_snapshot_to_ylm(
-        f"../data/hydro_snapshots_raw/T341_temp_{day}days.txt",
+        f"../../data/hydro_snapshots_raw/T341_temp_{day}days.txt",
         wavelength_grid,
         ydeg=ydeg,
     )
