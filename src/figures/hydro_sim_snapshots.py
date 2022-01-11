@@ -1,5 +1,5 @@
 import numpy as np
-import pickle as pkl
+import yaml
 import starry
 import astropy.units as u
 
@@ -67,11 +67,12 @@ def compute_simulated_lightcurve(
 
     # Ratio of star and planet map *ampliudes* needs to be proportional to
     # (Rp/Rs)**2 so we need to multiply the planet map amplitude with that factor
-    map_planet.amp *= (params_p["r"].value / params_s["r"].value) ** 2
+    radius_ratio = params_p["r"] * u.Rjupiter.to(u.Rsun) / params_s["r"]
+    map_planet.amp *= radius_ratio ** 2
 
     # Generate observation times excluding transit
-    porb = params_p["porb"]
-    t0 = 0.5 * params_p["porb"]
+    porb = params_p["porb"] * u.d
+    t0 = 0.5 * params_p["porb"] * u.d
 
     t_ = np.linspace(-t0.value, +t0.value, int(0.5 * porb.to(u.s) / texp))
 
@@ -80,15 +81,15 @@ def compute_simulated_lightcurve(
     t = t_[~mask_tran]
 
     # Initialize system
-    star = starry.Primary(map_star, r=params_s["r"], m=params_s["m"])
+    star = starry.Primary(map_star, r=params_s["r"] * u.Rsun, m=params_s["m"] * u.Msun)
 
     planet = starry.Secondary(
         map_planet,
-        r=params_p["r"],
-        porb=params_p["porb"],
-        prot=params_p["prot"],
-        t0=params_p["t0"],
-        inc=params_p["inc"],
+        r=params_p["r"] * (u.Rjupiter.to(u.Rsun)) * u.Rsun,
+        porb=params_p["porb"] * u.d,
+        prot=params_p["prot"] * u.d,
+        t0=0.5 * params_p["porb"] * u.d,
+        inc=params_p["inc"] * u.deg,
         theta0=180,
     )
 
@@ -111,7 +112,7 @@ def compute_simulated_lightcurve(
     )
 
     # Rescale the amplitude of the planet map back to its original value
-    map_planet.amp *= (params_s["r"].value / params_p["r"].value) ** 2
+    map_planet.amp *= radius_ratio ** (-2.0)
 
     return t, fsim, sys
 
@@ -141,13 +142,13 @@ filter_name = "f444w"
 
 # Load orbital and system parameters
 with open(
-    f"../../data/system_parameters/{planet}/orbital_params_planet.p", "rb"
+    f"../../data/system_parameters/{planet}/orbital_params_planet.yaml", "rb"
 ) as handle:
-    params_p = pkl.load(handle)
+    params_p = yaml.safe_load(handle)
 with open(
-    f"../../data/system_parameters/{planet}/orbital_params_star.p", "rb"
+    f"../../data/system_parameters/{planet}/orbital_params_star.yaml", "rb"
 ) as handle:
-    params_s = pkl.load(handle)
+    params_s = yaml.safe_load(handle)
 
 # Load filter
 filt = load_filter(name=f"{filter_name}")
@@ -251,7 +252,7 @@ fig.suptitle(
 fig.savefig("hydro_sim_snapshots.pdf", bbox_inches="tight", dpi=100)
 
 # Compute predicted light curves for each snapshot
-map_star = initialize_featureless_map(params_s["T"].value, wavelength_grid)
+map_star = initialize_featureless_map(params_s["Teff"], wavelength_grid)
 
 # Simulate reference light curves
 fsim_reference_list = []
