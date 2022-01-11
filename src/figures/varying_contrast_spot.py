@@ -4,6 +4,7 @@ import astropy.units as u
 from scipy.optimize import brent
 from scipy.stats import binned_statistic
 from matplotlib import colors
+from matplotlib import pyplot as plt
 
 np.random.seed(42)
 
