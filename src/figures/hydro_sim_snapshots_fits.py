@@ -12,6 +12,8 @@ from utils import (
     planck,
     starry_intensity_to_bbtemp,
     simulation_snapshot_to_ylm,
+    integrate_planck_over_filter,
+    inverse_integrate_planck_over_filter,
 )
 
 np.random.seed(42)
@@ -155,7 +157,7 @@ ydeg = 25
 
 snapshots_ylm = [
     simulation_snapshot_to_ylm(
-        f"../data/hydro_snapshots_raw/T341_temp_{day}days.txt",
+        f"../../data/hydro_snapshots_raw/T341_temp_{day}days.txt",
         wavelength_grid,
         ydeg=ydeg,
         temp_offset=-450,
