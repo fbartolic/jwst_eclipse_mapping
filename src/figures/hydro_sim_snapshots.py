@@ -11,7 +11,7 @@ from utils import (
     load_filter,
     planck,
     starry_intensity_to_bbtemp,
-    simulation_snapshot_to_ylm
+    simulation_snapshot_to_ylm,
 )
 
 np.random.seed(42)
@@ -207,7 +207,11 @@ for i, a in enumerate(ax1):
     a.set_title(labels[i])
 
 fig.suptitle(
-    "Hydro simulation snapshots at $l=25$ (top) and $l=2$ (bottom)", x=0.5, y=1.04
+    "Hydrodynamics simulation snapshots at $l=25$ (top) and $l=2$ (bottom)",
+    x=0.5,
+    y=1.04,
+    fontweight="bold",
+    fontsize=16,
 )
 
 fig.savefig("hydro_sim_snapshots.pdf", bbox_inches="tight", dpi=100)
@@ -288,7 +292,7 @@ for a in ax[0]:
 for a in ax[1]:
     a.set(ylim=(-18, 18), yticks=np.arange(-15, 20, 5))
 
-ax[0, 1].legend(bbox_to_anchor=(1.08, 0.17))
+ax[0, 1].legend(bbox_to_anchor=(1.08, 0.12))
 ax[0, 0].set_ylabel(r"$(F/F_\mathrm{max} - 1)\times 10^{6}$ [ppm]")
 ax[1, 0].set_ylabel("Flux difference w.r.t.\n an $l=2$ map [ppm]")
 
@@ -296,14 +300,18 @@ ax[1, 0].set_xlabel("Time from eclipse center [days]")
 ax[1, 1].set_xlabel("Time from eclipse center [minutes]")
 
 ax[0, 0].set_title(
-    r"Predicted fluxes (F444W $4.5\mu m$ filter) for hydro simulation snapshots at $l=25$",
+    r"Predicted fluxes (F444W $4.5\mu m$ filter) for hydrodynamics simulation snapshots at $l=25$",
     x=0.78,
     pad=20,
+    fontweight="bold",
+    fontsize=16,
 )
 ax[1, 0].set_title(
     r"Difference between predicted fluxes at $l=25$ and $l=2$ for the same snapshots",
     x=0.78,
     pad=20,
+    fontweight="bold",
+    fontsize=16,
 )
 
 fig.savefig("hydro_sim_snapshot_lightcurves.pdf", bbox_inches="tight", dpi=100)
