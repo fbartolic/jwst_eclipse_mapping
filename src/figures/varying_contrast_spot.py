@@ -383,7 +383,7 @@ top = bottom + height
 ax_text.axis("off")
 ax_text.text(
     0.5 * (left + right),
-    0.5 * (bottom + top),
+    0.4 * (bottom + top),
     "Inferred maps",
     horizontalalignment="center",
     verticalalignment="center",
