@@ -11,52 +11,13 @@ from utils import (
     load_filter,
     planck,
     starry_intensity_to_bbtemp,
+    simulation_snapshot_to_ylm
 )
 
 np.random.seed(42)
 
 starry.config.lazy = False
 starry.config.quiet = True
-
-
-def simulation_snapshot_to_ylm(path, wavelength_grid, ydeg=25, temp_offset=-450):
-    data = np.loadtxt(path)
-
-    nlat = 512
-    nlon = 1024
-
-    lons = np.linspace(-180, 180, nlon)
-    lats = np.linspace(-90, 90, nlat)
-
-    lon_grid, grid = np.meshgrid(lons, lats)
-
-    temp_grid = np.zeros_like(lon_grid)
-
-    for i in range(nlat):
-        for j in range(nlon):
-            temp_grid[i, j] = data.reshape((nlat, nlon))[i, j]
-
-    temp_grid = np.roll(temp_grid, int(temp_grid.shape[1] / 2), axis=1) + temp_offset
-
-    x_list = []
-    map_tmp = starry.Map(ydeg)
-
-    # Evaluate at fewer points for performance reasons
-    idcs = np.linspace(0, len(wavelength_grid) - 1, 10).astype(int)
-    for i in idcs:
-        I_grid = np.pi * planck(temp_grid, wavelength_grid[i])
-        map_tmp.load(I_grid, force_psd=True)
-        x_list.append(map_tmp._y * map_tmp.amp)
-
-    # Interpolate to full grid
-    x_ = np.vstack(x_list).T
-    x_interp_list = [
-        np.interp(wavelength_grid, wavelength_grid[idcs], x_[i, :])
-        for i in range(x_.shape[0])
-    ]
-    x = np.vstack(x_interp_list)
-
-    return x
 
 
 def compute_simulated_lightcurve(
