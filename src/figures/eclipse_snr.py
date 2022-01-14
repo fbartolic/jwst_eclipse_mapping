@@ -218,7 +218,7 @@ ax[0].set_title(
     pad=20,
 )
 ax[1].set_title(
-    "Same as the plot on the left, except assuming\n a telescope collecting area of LUVOIR-A",
+    "Same as the plot on the left, except assuming\n a telescope collecting area equal to that of LUVOIR-A",
     fontsize=12,
     pad=20,
 )
