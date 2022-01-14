@@ -5,6 +5,7 @@ from scipy.optimize import brent
 from matplotlib import colors
 import matplotlib as mpl
 from matplotlib import pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 np.random.seed(42)
 
@@ -13,10 +14,10 @@ starry.config.quiet = True
 
 
 def compute_simulated_lightcurve(
-    t, map_star, map_planet, params_s, params_p, texp, radius_ratio=0.08,
+    t, map_star, map_planet, params_s, params_p, texp, radius_ratio=0.1,
 ):
 
-    # Ratio of star and planet map *ampliudes* needs to be proportional to
+    # Ratio of star and planet map *amplitudes* needs to be proportional to
     # (Rp/Rs)**2 so we need to multiply the planet map amplitude with that factor
     map_planet.amp *= (radius_ratio) ** 2
 
@@ -47,18 +48,18 @@ def compute_simulated_lightcurve(
 
 
 def get_map_amplitude_given_constraint(
-    radius_ratio=0.08,
+    radius_ratio=0.1,
     target_Fp_Fs=2e-03,
     ydeg=20,
     spot_contrast=-0.25,
     radius=30.0,
-    lat=30,
+    lat=30.0,
     lon=30.0,
 ):
     map_star = starry.Map(1)
     Fs = map_star.flux()[0]
 
-    def cost_fn(map_amplitude, return_map=False):
+    def cost_fn(map_amplitude):
         map = starry.Map(ydeg)
         map.amp = map_amplitude
 
@@ -147,7 +148,6 @@ params_s["m"] = 1 * u.Msun
 params_s["r"] = 1 * u.Rsun
 
 params_p["porb"] = 1 * u.d
-# params_p['r'] = 1.*u.Rjupiter.to(u.Rsun)*u.Rsun
 a = (params_p["porb"].to(u.yr).value ** 2 * params_s["m"].value) ** (1 / 3.0) * u.au
 
 
@@ -158,13 +158,12 @@ def impact_parameter_to_inc(b):
 # Set inclination as a function of impact parameter
 params_p["inc"] = impact_parameter_to_inc(0.5)
 
-# Set exposure time
-texp = 2 * u.s
+# Set exposure time (unimportant for this figure)
+texp = 5 * u.s
 
 # Radius ratio and planet/star flux ratio
 Fp_Fs = 1e-03
 radius_ratio = 0.1
-
 
 # Observation times
 t0 = 0.5 * params_p["porb"]
@@ -206,84 +205,81 @@ def make_broken_axis(ax):
     ax[1].plot((-d, +d), (-d, +d), **kwargs)
 
 
-fig, ax = plt.subplots(
-    3,
-    3,
-    figsize=(12, 8),
-    gridspec_kw={"wspace": 0.15, "hspace": 0.5, "width_ratios": [20, 20, 1]},
-)
+fig, ax = plt.subplots(1, 3, figsize=(14, 4), gridspec_kw={"wspace": 0.5})
+
 
 # Varying contrast
 norm1 = mpl.colors.Normalize(vmin=spot_contrasts[-1], vmax=spot_contrasts[0])
 cmap1 = colors.LinearSegmentedColormap.from_list("mycmap", ["black", "white"])
 
 for i, c in enumerate(spot_contrasts):
-    ax[0, 0].plot(t * 24 * 60, resid_varying_contrast[i], color=cmap1(norm1(c)))
-    ax[0, 1].plot(t * 24 * 60, resid_varying_contrast[i], color=cmap1(norm1(c)))
-
-
-cb1 = mpl.colorbar.ColorbarBase(
-    ax[0, 2], cmap=cmap1, norm=norm1, ticks=-np.arange(0, 0.3, 0.05)
-)
-cb1.set_label("spot contrast")
+    ax[0].plot(t * 24 * 60, resid_varying_contrast[i], color=cmap1(norm1(c)), lw=2.0)
 
 # Varying spot size
 norm2 = mpl.colors.Normalize(vmin=spot_radii[0], vmax=spot_radii[-1])
 cmap2 = colors.LinearSegmentedColormap.from_list("mycmap", ["white", "black"])
 
-
 for i, r in enumerate(spot_radii):
-    ax[1, 0].plot(t * 24 * 60, resid_varying_radii[i], color=cmap2(norm2(r)))
-    ax[1, 1].plot(t * 24 * 60, resid_varying_radii[i], color=cmap2(norm2(r)))
-
-cb2 = mpl.colorbar.ColorbarBase(
-    ax[1, 2], cmap=cmap2, norm=norm2, ticks=np.arange(0, 60, 15)
-)
-cb2.set_label(r"spot radius")
+    ax[1].plot(t * 24 * 60, resid_varying_radii[i], color=cmap2(norm2(r)), lw=2.0)
 
 # Varying spot latitude
 norm3 = mpl.colors.TwoSlopeNorm(vmin=spot_lats[0], vmax=spot_lats[-1], vcenter=0)
-
 cmap3 = colors.LinearSegmentedColormap.from_list("mycmap", ["black", "white", "black"])
 
-
 for i, lat in enumerate(spot_lats):
-    ax[2, 0].plot(t * 24 * 60, resid_varying_lats[i], color=cmap3(norm3(lat)))
-    ax[2, 1].plot(t * 24 * 60, resid_varying_lats[i], color=cmap3(norm3(lat)))
+    ax[2].plot(t * 24 * 60, resid_varying_lats[i], color=cmap3(norm3(lat)), lw=2.0)
 
-cb3 = mpl.colorbar.ColorbarBase(
-    ax[2, 2], cmap=cmap3, norm=norm3, ticks=np.arange(-30, 45, 15)
+# Colorbars
+cax = []
+for a in ax:
+    divider = make_axes_locatable(a)
+    cx = divider.append_axes("right", size="8%", pad=0.15)
+    cax.append(cx)
+
+
+plt.colorbar(
+    mpl.cm.ScalarMappable(norm=norm1, cmap=cmap1),
+    cax=cax[0],
+    ticks=-np.arange(0.0, 0.3, 0.05),
+    aspect=10,
+    label="spot contrast",
 )
-cb3.set_label("spot latitude")
 
-for a in ax[:, :2].reshape(-1):
-    a.set(yticks=np.arange(-200, 400, 100))
 
-for a in ax[:, 0]:
-    a.set(xlim=(-45, -25), ylim=(-250, 250))
-    a.set(ylabel="Residuals w.r.t.\nan $l=1$ map\n[ppm]")
+plt.colorbar(
+    mpl.cm.ScalarMappable(norm=norm2, cmap=cmap2),
+    cax=cax[1],
+    ticks=np.arange(0, 60, 15),
+    aspect=10,
+    label="spot radius",
+)
 
-for a in ax[:, 1]:
-    a.set(xlim=(25, 45), ylim=(-250, 250))
-    a.set(yticklabels=[])
+
+plt.colorbar(
+    mpl.cm.ScalarMappable(norm=norm3, cmap=cmap3),
+    cax=cax[2],
+    ticks=np.arange(-30, 45, 15),
+    aspect=10,
+    label="spot latitude",
+)
+
 
 for a in ax:
-    make_broken_axis(a)
-
-for a in ax.reshape(-1)[:5]:
-    a.set(xticklabels=[])
-
-for a in ax[:, :2].reshape(-1):
+    a.set_yticks(np.arange(-200, 400, 100))
+    a.set(xlim=(25, 45), ylim=(-210, 210))
     a.grid(alpha=0.5)
+    a.set_xticks(np.arange(25, 50, 5))
 
-for a in ax[:, 1]:
-    a.tick_params(axis=u"y", which=u"both", length=0)
 
-ax[0, 0].set_title("$r=30^\circ,\, \mathrm{lat}=0^\circ$", x=1.05, pad=20)
-ax[1, 0].set_title("$c=-0.15,\,\mathrm{lat}=0^\circ$", x=1.05, pad=20)
-ax[2, 0].set_title("$c=-0.15,\,r=30^\circ$", x=1.05, pad=20)
-fig.text(
-    0.35, 0.02, "Time from eclipse center [minutes]",
-)
+for a in ax[1:]:
+    a.set(yticklabels=[])
+
+ax[0].set(ylabel="Residuals w.r.t. an $l=1$ map\n[ppm]")
+
+
+ax[0].set_title("$r=30^\circ,\, \mathrm{lat}=0^\circ$", pad=20)
+ax[1].set_title("$c=-0.15,\,\mathrm{lat}=0^\circ$", pad=20)
+ax[2].set_title("$c=-0.15,\,r=30^\circ$", pad=20)
+fig.text(0.36, -0.08, "Time from eclipse center [minutes]")
 
 fig.savefig("spot_residuals.pdf", bbox_inches="tight", dpi=100)
