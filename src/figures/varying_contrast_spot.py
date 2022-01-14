@@ -255,7 +255,8 @@ def rescale_inferred_map_to_original_units(I_inferred):
     return I_planet
 
 
-resol = 150
+resol = 250
+resol_mini = 80
 maps_sim_rendered = [m.render(res=resol) for m in maps_sim]
 maps_inferred_rendered = []
 maps_inferred_samples_rendered = []
@@ -286,7 +287,7 @@ for i in range(len(solutions)):
         v = np.random.normal(size=len(x_mean))
         x_sample = x_mean + (cho_cov @ v[:, None]).reshape(-1)
         map[1:, :] = x_sample[1:] / x_sample[0]
-        I = map.render(res=resol)
+        I = map.render(res=resol_mini)
         I_rescaled = rescale_inferred_map_to_original_units(I)
         samples.append(I_rescaled)
     maps_inferred_samples_rendered.append(samples)
@@ -478,5 +479,12 @@ fig.text(
     0.37, 0.05, "Time from eclipse center [minutes]",
 )
 fig.suptitle("Simulated maps", x=0.517, y=0.95, fontweight="bold", fontsize=16)
+
+for a in ax_sim_maps + ax_inf_maps:
+    a.set_rasterization_zorder(0)
+
+ax_samples_flat = [item for sublist in ax_samples for item in sublist]
+for a in ax_samples_flat:
+    a.set_rasterization_zorder(0)
 
 fig.savefig("varying_contrast_spot.pdf", bbox_inches="tight", dpi=100)

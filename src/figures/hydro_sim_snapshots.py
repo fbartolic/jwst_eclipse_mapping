@@ -148,14 +148,14 @@ snapshots_maps_quadrupole = [get_lower_order_map(map, ydeg=2) for map in snapsho
 
 snapshots_maps_bbtemp = [
     starry_intensity_to_bbtemp(
-        map.render(res=200, projection="Mollweide"), wavelength_grid
+        map.render(res=250, projection="Mollweide"), wavelength_grid
     )
     for map in snapshots_maps
 ]
 
 snapshots_maps_quadrupole_bbtemp = [
     starry_intensity_to_bbtemp(
-        map.render(res=200, projection="Mollweide"), wavelength_grid
+        map.render(res=250, projection="Mollweide"), wavelength_grid
     )
     for map in snapshots_maps_quadrupole
 ]
@@ -213,8 +213,10 @@ fig.suptitle(
     fontweight="bold",
     fontsize=16,
 )
+for a in ax1 + ax2:
+    a.set_rasterization_zorder(0)
 
-fig.savefig("hydro_sim_snapshots.pdf", bbox_inches="tight", dpi=100)
+fig.savefig("hydro_sim_snapshots.pdf", bbox_inches="tight")
 
 # Compute predicted light curves for each snapshot
 map_star = initialize_featureless_map(params_s["Teff"], wavelength_grid)

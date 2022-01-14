@@ -269,8 +269,8 @@ def inferred_intensity_to_bbtemp(I_planet_raw, filt, params_s, params_p):
 
 
 # Render inferred and simulated maps
-resol = 120
-resol_samples = 50
+resol = 150
+resol_samples = 80
 maps_sim_rendered = [
     starry_intensity_to_bbtemp(
         m.render(res=resol, projection="Mollweide"), wavelength_grid
@@ -448,4 +448,14 @@ plt.colorbar(
 
 fig.suptitle("Simulated maps", x=0.517, y=0.93, fontweight="bold", fontsize=16)
 
-fig.savefig("hydro_sim_snapshots_fits.pdf", bbox_inches="tight", dpi=100)
+for a in ax_sim_maps:
+    a.set_rasterization_zorder(0)
+
+for snr in snr_ratios:
+    for a in ax_inf_maps[snr]:
+        a.set_rasterization_zorder(0)
+    ax_samples_flat = [item for sublist in ax_samples[snr] for item in sublist]
+    for a in ax_samples_flat:
+        a.set_rasterization_zorder(0)
+
+fig.savefig("hydro_sim_snapshots_fits.pdf", bbox_inches="tight")

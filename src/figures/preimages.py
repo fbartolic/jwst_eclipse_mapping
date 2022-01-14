@@ -195,7 +195,7 @@ def make_plot(
     ax6 = [fig.add_subplot(gs_inf[i, 5]) for i in range(4)]
 
     map = starry.Map(ydeg)
-    resol = 150
+    resol = 250
 
     # Spot
     norm1 = colors.Normalize(vmin=0.3, vmax=2.0)
@@ -294,7 +294,10 @@ def make_plot(
         fontsize=16,
     )
 
-    fig.savefig("preimages.pdf", bbox_inches="tight", dpi=100)
+    for a in ax_sim + ax1 + ax2 + ax3 + ax4 + ax5 + ax6:
+        a.set_rasterization_zorder(0)
+
+    fig.savefig("preimages.pdf", bbox_inches="tight")
 
 
 make_plot(
