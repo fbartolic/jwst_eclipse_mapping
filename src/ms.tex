@@ -12,7 +12,8 @@
 \title{
     \vspace{-3em}
     \textbf{
-        What can we learn about exoplanet maps in emitted light from photometric observations of secondary eclipses using JWST?
+        What can we learn about spatial maps of exoplanets in emitted light with 
+        JWST photometric observations of secondary eclipses?
     }
 }
 % Author list
@@ -26,22 +27,25 @@
 %
 
 \begin{abstract}
-We investigate the degeneracies involved in the process of reconstructing spatial maps of 
-exoplanets from secondary eclipse light curves in emitted light, and test the feasibility of 
-spatially resolving localized features on the daysides of Hot Jupiters using JWST.
-We find that even with noiseless light curves and assuming fixed orbital parameters, there are 
-interesting degeneracies in the structure of inferred maps. 
-With realistic light curves, differentiating between a homogenous spot and finer spatial 
-structure (due to, for instance, the presence of large storms and clouds) is highly dependant 
-on the intensity contrast between the feature and the background. 
-There is a signal-to-noise dependent threshold which needs to be reached so that the ingress 
-and egress parts of the light curve start constraining higher order modes of the surface map.
-Without reaching this threshold there is no hope of constraining finer structure on the dayside
-of the planet and the information content about the surface is dominated by the phase curve 
+   We test the feasibility of resolving spatially localized features on the daysides of tidally 
+   locked exoplanets using secondary eclipse light curves in emitted light. 
+We find that even with noiseless light curves and the assumption of fixed orbital parameters, there are 
+fundamental degeneracies in the structure of inferred maps. 
+With noisy light curves, differentiating between a homogenous spot and finer spatial 
+features (due to, for instance, the presence of large storms or clouds in the atmosphere) is 
+highly dependant on the size and the intensity contrast of the feature.
+For a given surface map expanded in a basis of spherical harmonic, there is a signal-to-noise dependent 
+threshold which needs to be reached so that the ingress and egress parts of the light 
+curve start constraining higher order modes beyond $l=2$ or so.
+If the data is too noisy, the information about the inferred map comes mostly from the phase curve 
 signal and the eclipse depth.
-We find that even for the brightest Hot Jupiters, the signal-to-noise 
-ratio of the simulated JWST light curves isn't high enough to provide much information about 
-the surface beyond excluding the presence of very high contrast features.
+Using temperature snapshots from a sophisticated hydrodynamics simulation of the Hot Jupiter HD189733b's
+atmosphere displaying spatially variable planetary scale storms and vortices, 
+we simulated eclipse light curves with the expected signal-to-noise ratio of JWST's NIRCam camera. 
+We found that although there is very little hope of resolving maps 
+with a resolution higher than $l=2$ ($\sim 90^\circ$), the expected variation in 
+the eclipse depths and the phase curve signal due to the time variability of the weather at different 
+epochs should still be detectable.
 \end{abstract}
 
 \section{Introduction}
@@ -90,40 +94,60 @@ content of phase curves and eclipse light curves.
 \section{Methods}
 \label{sec:methods}
 
-\subsection{Model}
+\subsection{The model}
 \label{ssec:model}
+
 We use the \textsf{starry} mapping framework (CITE) to compute eclipse light curves of a simulated planet with thermal surface emission.
 \textsf{starry} enables fast computation of occultation (eclipse) light curves in both emitted and reflected light by analytically integrating the flux over the planet and the stellar disc 
 Most importantly, \textsf{starry} 
 
-
-To compute eclipse light curves 
-\section{Results}
-\label{sec:results}
-
-\subsection{Degeneracies}
-\label{ssec:degeneracies}
-
+\subsection{The nullspace}
+\label{ssec:nullspace}
 
 \begin{figure}[t!]
     \begin{centering}
     \includegraphics[width=\linewidth]{figures/preimages.pdf}
-    \caption{}
+    \caption{
+        The top row shows a collection of simulated spherical harmonic maps with different spatial 
+        features and in the bottom row are the the corresponding \emph{preimages} -- maps 
+        constructed only from those spherical harmonic
+        coefficients which are not in the nullspace of the linear operator which 
+        maps the 2D map into a 1D light curve. 
+        The preimages represent the best-case scenario for reconstructing the original maps, they are the solution of the linear problem
+        when the signal-to-noise for the light curve tends to infinity.
+        To compute the preimages we consider a tidally locked Jupiter size planet in a 1 day orbit around a $1R_\odot$ star.
+        Each row below the top row corresponds to a different value of the impact parameter of the secondary eclipse.
+    }
     \label{fig:preimages}
     \end{centering}
 \end{figure}
 
+\section{Results}
+\label{sec:results}
 
 
+\subsection{A simple example -- localizing a hot spot}
+\label{ssec:localizing_spot}
 
-
-\section{Discussion}
-\label{sec:discussion}
 
 \begin{figure}[t!]
     \begin{centering}
     \includegraphics[width=\linewidth]{figures/varying_contrast_spot.pdf}
-    \caption{}
+    \caption{
+        Dependence of the inferred maps on the contrast $c$ between the feature and the background.
+        The top row shows simulated maps at $l=25$ with a hot spot offset from the substellar point, located at
+        $20^\circ$ latitude and $15^\circ$ longitude with a radius of $30^\circ$.
+        Each column shows a map with a different spot contrast $c$ but all maps have the same dayside 
+        flux ratio relative to the star, set to $0.001$.
+        The second row shows the mean inferred maps together with a few sample maps from the posterior
+        (small circles). 
+        The grey cross marks the center of the simulated spot. 
+        The bottom two rows show the simulated secondary eclipse light curves with the fitted flux 
+        (solid orange line) and the residuals between the data and the simulated flux for maps 
+        shown in the top row, except truncated to $l=1$ to emphasize that the scale of this difference 
+        relative to the noise level determines the quality of the inferred maps.
+        The solid lines show the binned residuals in 5 minute bins. 
+    }
     \label{fig:varying_contrast_spot}
     \end{centering}
 \end{figure}
@@ -131,15 +155,34 @@ To compute eclipse light curves
 \begin{figure}[t!]
     \begin{centering}
     \includegraphics[width=\linewidth]{figures/spot_residuals.pdf}
-    \caption{}
+    \caption{
+       Residuals between flux during egress computed with simulated maps at $l=25$ consisting of a single spot at 
+       $0^\circ$ longitude with varying size, contrast and latitude (while holding the planet to star
+       dayside flux ratio constant at $0.001$), and the flux computed with the same maps truncated to 
+       $l=1$. 
+       Since the spot is always at $0^\circ$ longitude, the ingress and egress flux is the same
+       so we only show the egress.
+       The deviation from the baseline model ($l=1$ maps) is maximized for large spots with large 
+       contrasts at appreciable latitudes.
+    }
     \label{fig:spot_residuals}
     \end{centering}
 \end{figure}
 
+
+\subsection{A more realistic example -- mapping weather patterns on Hot Jupiters}
+\label{ssec:weather}
+
 \begin{figure}[t!]
     \begin{centering}
     \includegraphics[width=\linewidth]{figures/hydro_sim_snapshots.pdf}
-    \caption{}
+    \caption{
+       Temperature snapshots from a hydrodynamics simulation of a Hot Jupiter atmosphere at different times, at a pressure of 
+       1 bar. 
+       The top row shows the the temperature maps at $l=25$ in  Mollweide projection and the bottom row shows the same maps truncated 
+       to $l=2$. 
+       The maps show the evolution of a pair of planetary scale storms -- a so called modon.
+    }
     \label{fig:hydro_sim_snapshots:maps}
     \end{centering}
 \end{figure}
@@ -147,28 +190,77 @@ To compute eclipse light curves
 \begin{figure}[t!]
     \begin{centering}
     \includegraphics[width=\linewidth]{figures/hydro_sim_snapshot_lightcurves.pdf}
-    \caption{}
+    \caption{
+        Predicted fluxes for simulated maps of HD189733b shown in \ref{fig:hydro_sim_snapshots:maps} assuming photometric observations 
+        in the F444W $4.5\mu m$ JWST NIRCam filter.
+        The top row shows the fluxes for each of the snapshots in addition to the mean flux across epochs. 
+        The bottom row shows the difference in the predicted fluxes for the snapshots at $l=25$ (top row of 
+        \ref{fig:hydro_sim_snapshots:maps}) and the predicted fluxes for the same snapshots truncated to $l=2$ (bottom row of 
+        \ref{fig:hydro_sim_snapshots:maps}).
+        The difference in flux for different simulation snapshots can be as 200 ppm (top row) but constraining maps 
+        at a resolution higher than $l=2$ requires data with noise at the level of 10 ppm (bottom row). 
+    }
     \label{fig:hydro_sim_snapshots:lightcurves}
     \end{centering}
 \end{figure}
 
 \begin{figure}[t!]
     \begin{centering}
-    \includegraphics[width=\linewidth]{figures/hydro_sim_snapshots_fits.pdf}
-    \caption{}
-    \label{fig:hydro_sim_snapshots_fits}
+    \includegraphics[width=\linewidth]{figures/hydro_sim_snapshots_fits_complete.pdf}
+    \caption{
+        Fits to the simulated maps shown in \ref{fig:hydro_sim_snapshots:maps} assuming photometric observations
+        (including everything but the transit) in the F444W $4.5\mu m$ JWST NIRCam filter with exposure time of $3.7 s$ for two different values 
+        of the signal-to-noise ratio on the secondary eclipse depth. 
+        The top row shows the simulated maps at $l=25$, the middle row shows the mean inferred maps at $l=5$
+        for S/N=20 which is roughly the expected performance of JWST for HD189733b assuming a single epoch
+        observation, and the bottom row shows the inferred maps for S/N=100 which is the signal-to-noise ratio
+        at which the deviations from an $l=2$ map shown in \ref{fig:hydro_sim_snapshots:lightcurves} start
+        becoming significant.
+        The mini maps beneath each mean inferred map are the posterior samples. 
+    }
+    \label{fig:hydro_sim_snapshots_fits:complete}
     \end{centering}
 \end{figure}
 
 \begin{figure}[t!]
     \begin{centering}
+    \includegraphics[width=\linewidth]{figures/hydro_sim_snapshots_fits_eclipse_only.pdf}
+    \caption{
+        Same as Figure~\ref{fig:hydro_sim_snapshots_fits:complete} except we fit only the portions of complete
+        light curves around the eclipse.
+    }
+    \label{fig:hydro_sim_snapshots_fits:eclipse_only}
+    \end{centering}
+\end{figure}
+
+
+
+\section{Discussion and conclusions}
+\label{sec:discussion}
+
+\subsection{Summary}
+\label{ssec:summary}
+
+\subsection{Observability of spatial features on Hot Jupiters with JWST and LUVOIR}
+\begin{figure}[t!]
+    \begin{centering}
     \includegraphics[width=\linewidth]{figures/eclipse_snr.pdf}
-    \caption{}
+    \caption{
+       Estimates of the signal-to-noise ratio on the secondary eclipse for JWST 
+        observations in the F444W $4.5\mu m$ filter for a Jupiter size planet 
+        orbiting a Sun like star ($T_\mathrm{eff}=5000$K) as 
+       a function of the planet equilibrium temperature and distance to the star (left panel).
+       The right panel shows the same thing except we scale the collecting area to match the collecting 
+       area of the planned LUVOIR-A telescope.
+    }
     \label{fig:eclipse_snr}
     \end{centering}
 \end{figure}
 
 
+\subsection{Mapping spatial features in reflected light?}
+
+\subsection{Spectral maps}
 
 % Bibliography 
 \bibliography{bib}
