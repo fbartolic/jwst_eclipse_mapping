@@ -282,4 +282,4 @@ ax[1].set_title("$c=-0.15,\,\mathrm{lat}=0^\circ$", pad=20)
 ax[2].set_title("$c=-0.15,\,r=30^\circ$", pad=20)
 fig.text(0.36, -0.08, "Time from eclipse center [minutes]")
 
-fig.savefig("spot_residuals.pdf", bbox_inches="tight", dpi=100)
+fig.savefig("spot_residuals.pdf", bbox_inches="tight")
