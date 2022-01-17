@@ -26,6 +26,7 @@ def get_preimage(
     Rstar = 1 * u.Rsun
     a = (Porb.to(u.yr).value ** 2 * Mstar.value) ** (1 / 3.0) * u.au
     i = np.arccos(b * Rstar / a.to(u.Rsun))
+    radius_ratio = 0.1
 
     map_star = starry.Map(ydeg=0)
     map_star.amp = 1
@@ -33,7 +34,7 @@ def get_preimage(
 
     planet = starry.Secondary(
         map,
-        r=1 * u.Rjupiter.to(u.Rsun),
+        r=radius_ratio * Rstar,
         porb=Porb,
         prot=Porb,
         inc=i.to(u.deg),
@@ -138,12 +139,12 @@ map_planet6 = starry.Map(ydeg)
 map_planet6.load("earth")
 
 b_ = np.array([0.0, 0.3, 0.5, 0.7])
-preim1_list = [get_preimage(map_planet1, b) for b in b_]
-preim2_list = [get_preimage(map_planet2, b) for b in b_]
-preim3_list = [get_preimage(map_planet3, b) for b in b_]
-preim4_list = [get_preimage(map_planet4, b) for b in b_]
-preim5_list = [get_preimage(map_planet5, b) for b in b_]
-preim6_list = [get_preimage(map_planet6, b) for b in b_]
+preim1_list = [get_preimage(map_planet1, b, include_phase_curves=True) for b in b_]
+preim2_list = [get_preimage(map_planet2, b, include_phase_curves=True) for b in b_]
+preim3_list = [get_preimage(map_planet3, b, include_phase_curves=True) for b in b_]
+preim4_list = [get_preimage(map_planet4, b, include_phase_curves=True) for b in b_]
+preim5_list = [get_preimage(map_planet5, b, include_phase_curves=True) for b in b_]
+preim6_list = [get_preimage(map_planet6, b, include_phase_curves=True) for b in b_]
 
 
 def make_plot(
