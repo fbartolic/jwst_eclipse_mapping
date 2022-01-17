@@ -160,7 +160,7 @@ spot_lat = 20.0
 spot_lon = 15.0
 
 # S/N on secondary eclipse depth
-SNR = 20
+SNR = 15
 
 # Spot contrasts
 spot_contrasts = [-0.05, -0.15, -0.30]
