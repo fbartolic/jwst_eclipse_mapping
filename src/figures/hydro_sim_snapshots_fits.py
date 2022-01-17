@@ -22,8 +22,48 @@ starry.config.lazy = False
 starry.config.quiet = True
 
 
+def simulation_snapshot_to_ylm(path, wavelength_grid, ydeg=20, temp_offset=-450):
+    data = np.loadtxt(path)
+
+    nlat = 512
+    nlon = 1024
+
+    lons = np.linspace(-180, 180, nlon)
+    lats = np.linspace(-90, 90, nlat)
+
+    lon_grid, grid = np.meshgrid(lons, lats)
+
+    temp_grid = np.zeros_like(lon_grid)
+
+    for i in range(nlat):
+        for j in range(nlon):
+            temp_grid[i, j] = data.reshape((nlat, nlon))[i, j]
+
+    temp_grid = np.roll(temp_grid, int(temp_grid.shape[1] / 2), axis=1) + temp_offset
+
+    x_list = []
+    map_tmp = starry.Map(ydeg)
+
+    # Evaluate at fewer points for performance reasons
+    idcs = np.linspace(0, len(wavelength_grid) - 1, 10).astype(int)
+    for i in idcs:
+        I_grid = np.pi * planck(temp_grid, wavelength_grid[i])
+        map_tmp.load(I_grid, force_psd=True)
+        x_list.append(map_tmp._y * map_tmp.amp)
+
+    # Interpolate to full grid
+    x_ = np.vstack(x_list).T
+    x_interp_list = [
+        np.interp(wavelength_grid, wavelength_grid[idcs], x_[i, :])
+        for i in range(x_.shape[0])
+    ]
+    x = np.vstack(x_interp_list)
+
+    return x
+
+
 def compute_simulated_lightcurve(
-    map_star, map_planet, params_s, params_p, filt, wavelength_grid, texp,
+    t, map_star, map_planet, params_s, params_p, filt, wavelength_grid, texp,
 ):
     # Interpolate filter throughput
     thr_interp = np.interp(wavelength_grid, filt[0], filt[1])
@@ -32,16 +72,6 @@ def compute_simulated_lightcurve(
     # (Rp/Rs)**2 so we need to multiply the planet map amplitude with that factor
     radius_ratio = params_p["r"] * u.Rjupiter.to(u.Rsun) / params_s["r"]
     map_planet.amp *= radius_ratio ** 2
-
-    # Generate observation times excluding transit
-    porb = params_p["porb"] * u.d
-    t0 = 0.5 * params_p["porb"] * u.d
-
-    t_ = np.linspace(-t0.value, +t0.value, int(0.5 * porb.to(u.s) / texp))
-
-    # Mask transit
-    mask_tran = np.abs(t_) > 0.9
-    t = t_[~mask_tran]
 
     # Initialize system
     star = starry.Primary(map_star, r=params_s["r"] * u.Rsun, m=params_s["m"] * u.Msun)
@@ -77,7 +107,7 @@ def compute_simulated_lightcurve(
     # Rescale the amplitude of the planet map back to its original value
     map_planet.amp *= radius_ratio ** (-2.0)
 
-    return t, fsim, sys
+    return fsim, sys
 
 
 def initialize_featureless_map(T_star, wavelength_grid, ydeg=1):
@@ -99,7 +129,7 @@ def get_lower_order_map(map, ydeg=2):
     return map
 
 
-def draw_sample_lightcurve(fsim, sigma=None, snr=None):
+def draw_sample_lightcurve(t, fsim, sigma=None, snr=None):
     eclipse_depth = np.max(fsim) - np.min(fsim)
     sigma = eclipse_depth / snr
     fobs = fsim + np.random.normal(0, sigma, size=len(t))
@@ -123,121 +153,6 @@ def solve_linear_system(sys, A, fobs, ferr, L_sec):
 
     x_mean, cho_cov = starry.linalg.solve(A, fobs, C=ferr ** 2, L=L,)
     return x_mean, cho_cov
-
-
-# System parameters
-planet = "hd189"
-filter_name = "f444w"
-
-# Load orbital and system parameters
-with open(
-    f"../../data/system_parameters/{planet}/orbital_params_planet.yaml", "rb"
-) as handle:
-    params_p = yaml.safe_load(handle)
-with open(
-    f"../../data/system_parameters/{planet}/orbital_params_star.yaml", "rb"
-) as handle:
-    params_s = yaml.safe_load(handle)
-
-# Load filter
-filt = load_filter(name=f"{filter_name}")
-mask = filt[1] > 0.002
-
-# Wavelength grid for starry map (should match filter range)
-wavelength_grid = np.linspace(filt[0][mask][0], filt[0][mask][-1], 100)
-
-# Set exposure time
-texp = 3.746710 * u.s
-
-# Signal to noise ratio on the secondary eclipse depth
-snr_ratios = [20, 100, 500]
-
-# Load simulation snapshots as starry maps
-ydeg = 25
-
-snapshots_ylm = [
-    simulation_snapshot_to_ylm(
-        f"../../data/hydro_snapshots_raw/T341_temp_{day}days.txt",
-        wavelength_grid,
-        ydeg=ydeg,
-        temp_offset=-450,
-    )
-    for day in [100, 106, 108, 109]
-]
-
-
-def initialize_map(ydeg, nw, x):
-    map = starry.Map(ydeg, nw=nw)
-    map[1:, :, :] = x[1:, :] / x[0]
-    map.amp = x[0]
-    return map
-
-
-snapshots_maps = [initialize_map(ydeg, len(wavelength_grid), x) for x in snapshots_ylm]
-snapshots_maps_quadrupole = [get_lower_order_map(map, ydeg=2) for map in snapshots_maps]
-
-
-map_star = initialize_featureless_map(params_s["Teff"], wavelength_grid)
-
-# Compute light curves for each snapshot and for different signal to noise ratios
-fsim_reference_list = []
-fsim_list = []
-
-fobs_list = {snr: [] for snr in snr_ratios}
-ferr_list = {snr: [] for snr in snr_ratios}
-
-for i in range(len(snapshots_maps_quadrupole)):
-    t, fsim_reference, _ = compute_simulated_lightcurve(
-        map_star,
-        snapshots_maps_quadrupole[i],
-        params_s,
-        params_p,
-        filt,
-        wavelength_grid,
-        texp,
-    )
-    t, fsim, sys = compute_simulated_lightcurve(
-        map_star, snapshots_maps[i], params_s, params_p, filt, wavelength_grid, texp
-    )
-
-    lc_norm = np.max(fsim_reference)
-
-    fsim_reference = fsim_reference / lc_norm
-    fsim = fsim / lc_norm
-
-    fsim_reference_list.append(fsim_reference)
-    fsim_list.append(fsim)
-
-    for snr in snr_ratios:
-        fobs, ferr = draw_sample_lightcurve(fsim, snr=snr)
-        fobs_list[snr].append(fobs)
-        ferr_list[snr].append(ferr)
-
-# Compute the design matrix
-ydeg_inf = 6
-A = sys.design_matrix(t)
-A = A[:, : sys.primary.map.N + (ydeg_inf + 1) ** 2]
-
-# Specify a power-law prior on the power spectrum of planet map
-compute_l = lambda ydeg: np.concatenate(
-    [np.repeat(l, 2 * l + 1) for l in range(ydeg + 1)]
-)
-
-ls = compute_l(ydeg_inf)
-
-gamma = -3.0  # power law index
-sigma_sec = np.sqrt((ls + 1) ** gamma / (2 * ls + 1))
-L_sec = 1e-03 ** 2 * sigma_sec ** 2
-
-# Solve for the map coefficients
-solutions = {snr: [] for snr in snr_ratios}
-
-for i in range(4):
-    for snr in snr_ratios:
-        x_mean, cho_cov = solve_linear_system(
-            sys, A, fobs_list[snr][i], ferr_list[snr][i], L_sec
-        )
-        solutions[snr].append((x_mean, cho_cov))
 
 
 def inferred_intensity_to_bbtemp(I_planet_raw, filt, params_s, params_p):
@@ -268,64 +183,78 @@ def inferred_intensity_to_bbtemp(I_planet_raw, filt, params_s, params_p):
     return bbtemp_map_inf
 
 
-# Render inferred and simulated maps
-resol = 150
-resol_samples = 80
-maps_sim_rendered = [
-    starry_intensity_to_bbtemp(
-        m.render(res=resol, projection="Mollweide"), wavelength_grid
+# System parameters
+planet = "hd189"
+filter_name = "f444w"
+
+# Load orbital and system parameters
+with open(
+    f"../../data/system_parameters/{planet}/orbital_params_planet.yaml", "rb"
+) as handle:
+    params_p = yaml.safe_load(handle)
+with open(
+    f"../../data/system_parameters/{planet}/orbital_params_star.yaml", "rb"
+) as handle:
+    params_s = yaml.safe_load(handle)
+
+# Load filter
+filt = load_filter(name=f"{filter_name}")
+mask = filt[1] > 0.002
+
+# Wavelength grid for starry map (should match filter range)
+wavelength_grid = np.linspace(filt[0][mask][0], filt[0][mask][-1], 100)
+
+# Set exposure time
+texp = 3.746710 * u.s
+
+# Signal to noise ratio on the secondary eclipse depth
+snr_ratios = [20, 100]
+
+# Load simulation snapshots as starry maps
+ydeg = 25
+
+snapshots_ylm = [
+    simulation_snapshot_to_ylm(
+        f"../../data/hydro_snapshots_raw/T341_temp_{day}days.txt",
+        wavelength_grid,
+        ydeg=ydeg,
+        temp_offset=-450,
     )
-    for m in snapshots_maps
+    for day in [100, 106, 108, 109]
 ]
-bbtemp_inferred_rendered = {snr: [] for snr in snr_ratios}
-bbtemp_inferred_samples_rendered = {snr: [] for snr in snr_ratios}
-predicted_fluxes = {snr: [] for snr in snr_ratios}
 
-# Save inferred maps
-map = starry.Map(ydeg_inf)
 
-for snr in snr_ratios:
-    for i in range(len(solutions[snr])):
-        x_mean, cho_cov = solutions[snr][i]
+def initialize_map(ydeg, nw, x):
+    map = starry.Map(ydeg, nw=nw)
+    map[1:, :, :] = x[1:, :] / x[0]
+    map.amp = x[0]
+    return map
 
-        # Flux
-        f = (A @ x_mean[:, None]).reshape(-1)
-        predicted_fluxes[snr].append(f)
 
-        x_mean = x_mean[sys.primary.map.N :]
-        cho_cov = cho_cov[sys.primary.map.N :, sys.primary.map.N :]
+snapshots_maps = [initialize_map(ydeg, len(wavelength_grid), x) for x in snapshots_ylm]
+snapshots_maps_quadrupole = [get_lower_order_map(map, ydeg=2) for map in snapshots_maps]
 
-        # Mean
-        map[1:, :] = x_mean[1:] / x_mean[0]
-        map.amp = x_mean[0]
-        temp = inferred_intensity_to_bbtemp(
-            map.render(res=resol, projection="Mollweide"), filt, params_s, params_p
-        )
-        bbtemp_inferred_rendered[snr].append(temp)
 
-        # Samples
-        samples = []
-        for s in range(4):
-            v = np.random.normal(size=len(x_mean))
-            x_sample = x_mean + (cho_cov @ v[:, None]).reshape(-1)
-            map[1:, :] = x_sample[1:] / x_sample[0]
-            temp = inferred_intensity_to_bbtemp(
-                map.render(res=resol_samples, projection="Mollweide"),
-                filt,
-                params_s,
-                params_p,
-            )
-            samples.append(temp)
-        bbtemp_inferred_samples_rendered[snr].append(samples)
+# Generate observation times excluding transit
+porb = params_p["porb"] * u.d
+t0 = 0.5 * params_p["porb"] * u.d
 
-# Main figure
+t_ = np.linspace(-t0.value, +t0.value, int(0.5 * porb.to(u.s) / texp))
+
+# Mask transit
+mask_tran = np.abs(t_) > 0.9
+t_complete = t_[~mask_tran]
+
+t_eclipse = np.linspace(-0.1, +0.1, int(0.5 * porb.to(u.s) / texp))
+
+
 def initialize_figure():
-    fig = plt.figure(figsize=(16, 14))
+    fig = plt.figure(figsize=(16, 10))
 
     gs = fig.add_gridspec(
-        nrows=10,
+        nrows=7,
         ncols=4 + 1 + 4 + 1 + 4 + 1 + 4,
-        height_ratios=[3, 2.5, 3, 2, 2.5, 3, 2, 2.5, 3, 2],
+        height_ratios=[3, 2.5, 3, 2, 2.5, 3, 2],
         width_ratios=4 * [1] + [0.4] + 4 * [1] + [0.4] + 4 * [1] + [0.4] + 4 * [1],
         hspace=0.0,
         wspace=0.02,
@@ -342,14 +271,13 @@ def initialize_figure():
     ax_text = [
         fig.add_subplot(gs[1, :]),
         fig.add_subplot(gs[4, :]),
-        fig.add_subplot(gs[7, :]),
     ]
 
     # Axes for inferred maps
     ax_inf_maps = {snr: [] for snr in snr_ratios}
     ax_samples = {snr: [] for snr in snr_ratios}
 
-    for idx, snr in zip([2, 5, 8], snr_ratios):
+    for idx, snr in zip([2, 5], snr_ratios):
         ax_inf_maps[snr] = [
             fig.add_subplot(gs[idx, :4]),
             fig.add_subplot(gs[idx, 5:9]),
@@ -367,95 +295,219 @@ def initialize_figure():
     return fig, ax_sim_maps, ax_text, ax_inf_maps, ax_samples
 
 
-fig, ax_sim_maps, ax_text, ax_inf_maps, ax_samples = initialize_figure()
+def main(t, fname):
+    map_star = initialize_featureless_map(params_s["Teff"], wavelength_grid)
 
-norm = colors.Normalize(vmin=1000, vmax=1300)
+    # Simulate reference light curves
+    fsim_reference_list = []
+    fsim_list = []
 
-# Plot simulated map
-map = starry.Map(25)
+    fobs_list = {snr: [] for snr in snr_ratios}
+    ferr_list = {snr: [] for snr in snr_ratios}
 
-for i in range(4):
-    map.show(
-        image=maps_sim_rendered[i],
-        ax=ax_sim_maps[i],
-        cmap="OrRd",
-        projection="Mollweide",
-        norm=norm,
+    for i in range(len(snapshots_maps_quadrupole)):
+        fsim_reference, _ = compute_simulated_lightcurve(
+            t,
+            map_star,
+            snapshots_maps_quadrupole[i],
+            params_s,
+            params_p,
+            filt,
+            wavelength_grid,
+            texp,
+        )
+        fsim, sys = compute_simulated_lightcurve(
+            t,
+            map_star,
+            snapshots_maps[i],
+            params_s,
+            params_p,
+            filt,
+            wavelength_grid,
+            texp,
+        )
+
+        lc_norm = np.max(fsim_reference)
+
+        fsim_reference = fsim_reference / lc_norm
+        fsim = fsim / lc_norm
+
+        fsim_reference_list.append(fsim_reference)
+        fsim_list.append(fsim)
+
+        for snr in snr_ratios:
+            fobs, ferr = draw_sample_lightcurve(t, fsim, snr=snr)
+            fobs_list[snr].append(fobs)
+            ferr_list[snr].append(ferr)
+
+    # Compute the design matrix
+    ydeg_inf = 6
+    A = sys.design_matrix(t)
+    A = A[:, : sys.primary.map.N + (ydeg_inf + 1) ** 2]
+
+    # Specify a power-law prior on the power spectrum of planet map
+    compute_l = lambda ydeg: np.concatenate(
+        [np.repeat(l, 2 * l + 1) for l in range(ydeg + 1)]
     )
 
-# Text
-# Build a rectangle in axes coords
-left, width = 0.25, 0.5
-bottom, height = 0.25, 0.5
-right = left + width
-top = bottom + height
+    ls = compute_l(ydeg_inf)
 
-text_list = [
-    "Inferred maps - S/N = 20",
-    "Inferred maps - S/N = 100",
-    "Inferred maps - S/N = 500",
-]
-for i, a in enumerate(ax_text):
-    a.axis("off")
-    a.text(
-        0.5 * (left + right),
-        0.3 * (bottom + top),
-        text_list[i],
-        horizontalalignment="center",
-        verticalalignment="bottom",
-        transform=a.transAxes,
-        fontweight="bold",
-        fontsize=16,
-    )
+    gamma = -3.0  # power law index
+    sigma_sec = np.sqrt((ls + 1) ** gamma / (2 * ls + 1))
+    L_sec = 1e-03 ** 2 * sigma_sec ** 2
 
-# Plot inferred maps
-for snr in snr_ratios:
+    # Solve for the map coefficients
+    solutions = {snr: [] for snr in snr_ratios}
+
+    for i in range(4):
+        for snr in snr_ratios:
+            x_mean, cho_cov = solve_linear_system(
+                sys, A, fobs_list[snr][i], ferr_list[snr][i], L_sec
+            )
+            solutions[snr].append((x_mean, cho_cov))
+
+    # Render inferred and simulated maps
+    resol = 150
+    resol_samples = 80
+    maps_sim_rendered = [
+        starry_intensity_to_bbtemp(
+            m.render(res=resol, projection="Mollweide"), wavelength_grid
+        )
+        for m in snapshots_maps
+    ]
+    bbtemp_inferred_rendered = {snr: [] for snr in snr_ratios}
+    bbtemp_inferred_samples_rendered = {snr: [] for snr in snr_ratios}
+    predicted_fluxes = {snr: [] for snr in snr_ratios}
+
+    # Save inferred maps
     map = starry.Map(ydeg_inf)
-    for i in range(len(solutions[snr])):
+
+    for snr in snr_ratios:
+        for i in range(len(solutions[snr])):
+            x_mean, cho_cov = solutions[snr][i]
+
+            # Flux
+            f = (A @ x_mean[:, None]).reshape(-1)
+            predicted_fluxes[snr].append(f)
+
+            x_mean = x_mean[sys.primary.map.N :]
+            cho_cov = cho_cov[sys.primary.map.N :, sys.primary.map.N :]
+
+            # Mean
+            map[1:, :] = x_mean[1:] / x_mean[0]
+            map.amp = x_mean[0]
+            temp = inferred_intensity_to_bbtemp(
+                map.render(res=resol, projection="Mollweide"), filt, params_s, params_p
+            )
+            bbtemp_inferred_rendered[snr].append(temp)
+
+            # Samples
+            samples = []
+            for s in range(4):
+                v = np.random.normal(size=len(x_mean))
+                x_sample = x_mean + (cho_cov @ v[:, None]).reshape(-1)
+                map[1:, :] = x_sample[1:] / x_sample[0]
+                temp = inferred_intensity_to_bbtemp(
+                    map.render(res=resol_samples, projection="Mollweide"),
+                    filt,
+                    params_s,
+                    params_p,
+                )
+                samples.append(temp)
+            bbtemp_inferred_samples_rendered[snr].append(samples)
+    fig, ax_sim_maps, ax_text, ax_inf_maps, ax_samples = initialize_figure()
+
+    norm = colors.Normalize(vmin=1000, vmax=1300)
+
+    # Plot simulated map
+    map = starry.Map(25)
+
+    for i in range(4):
         map.show(
-            image=bbtemp_inferred_rendered[snr][i],
-            ax=ax_inf_maps[snr][i],
+            image=maps_sim_rendered[i],
+            ax=ax_sim_maps[i],
             cmap="OrRd",
             projection="Mollweide",
             norm=norm,
         )
 
-        # Plot samples
-        for s in range(4):
+    # Text
+    # Build a rectangle in axes coords
+    left, width = 0.25, 0.5
+    bottom, height = 0.25, 0.5
+    right = left + width
+    top = bottom + height
+
+    text_list = [
+        "Inferred maps - S/N = 20",
+        "Inferred maps - S/N = 100",
+        "Inferred maps - S/N = 500",
+    ]
+    for i, a in enumerate(ax_text):
+        a.axis("off")
+        a.text(
+            0.5 * (left + right),
+            0.3 * (bottom + top),
+            text_list[i],
+            horizontalalignment="center",
+            verticalalignment="bottom",
+            transform=a.transAxes,
+            fontweight="bold",
+            fontsize=16,
+        )
+
+    # Plot inferred maps
+    for snr in snr_ratios:
+        map = starry.Map(ydeg_inf)
+        for i in range(len(solutions[snr])):
             map.show(
-                image=bbtemp_inferred_samples_rendered[snr][i][s],
-                ax=ax_samples[snr][i][s],
+                image=bbtemp_inferred_rendered[snr][i],
+                ax=ax_inf_maps[snr][i],
                 cmap="OrRd",
                 projection="Mollweide",
                 norm=norm,
-                grid=False,
             )
 
-labels = ["$t = 100$ days", "$t = 106$ days", "$t = 108$ days", "$t = 109$ days"]
+            # Plot samples
+            for s in range(4):
+                map.show(
+                    image=bbtemp_inferred_samples_rendered[snr][i][s],
+                    ax=ax_samples[snr][i][s],
+                    cmap="OrRd",
+                    projection="Mollweide",
+                    norm=norm,
+                    grid=False,
+                )
 
-for i, a in enumerate(ax_sim_maps):
-    a.set_title(labels[i])
+    labels = ["$t = 100$ days", "$t = 106$ days", "$t = 108$ days", "$t = 109$ days"]
 
-# Colorbar
-cax = fig.add_axes([0.42, 0.08, 0.2, 0.01])
-plt.colorbar(
-    mpl.cm.ScalarMappable(norm=norm, cmap="OrRd"),
-    cax=cax,
-    orientation="horizontal",
-    label="blackbody temperature [K]",
-    fraction=1.0,
-)
+    for i, a in enumerate(ax_sim_maps):
+        a.set_title(labels[i])
 
-fig.suptitle("Simulated maps", x=0.517, y=0.93, fontweight="bold", fontsize=16)
+    # Colorbar
+    cax = fig.add_axes([0.42, 0.08, 0.2, 0.01])
+    plt.colorbar(
+        mpl.cm.ScalarMappable(norm=norm, cmap="OrRd"),
+        cax=cax,
+        orientation="horizontal",
+        label="blackbody temperature [K]",
+        fraction=1.0,
+    )
 
-for a in ax_sim_maps:
-    a.set_rasterization_zorder(0)
+    for snr in snr_ratios:
+        for a in ax_inf_maps[snr]:
+            a.set_rasterization_zorder(0)
+        ax_samples_flat = [item for sublist in ax_samples[snr] for item in sublist]
+        for a in ax_samples_flat:
+            a.set_rasterization_zorder(0)
 
-for snr in snr_ratios:
-    for a in ax_inf_maps[snr]:
-        a.set_rasterization_zorder(0)
-    ax_samples_flat = [item for sublist in ax_samples[snr] for item in sublist]
-    for a in ax_samples_flat:
-        a.set_rasterization_zorder(0)
+    fig.suptitle("Simulated maps", x=0.517, y=0.97, fontweight="bold", fontsize=16)
+    fig.savefig(fname, bbox_inches="tight")
 
-fig.savefig("hydro_sim_snapshots_fits.pdf", bbox_inches="tight")
+
+# Include everything but the transit
+main(t_complete, "hydro_sim_snapshots_fits_complete.pdf")
+
+
+# Only the eclipse
+main(t_eclipse, "hydro_sim_snapshots_fits_eclipse_only.pdf")
