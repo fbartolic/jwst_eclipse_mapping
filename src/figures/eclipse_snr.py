@@ -213,7 +213,7 @@ for a in ax:
     a.yaxis.set_minor_locator(AutoMinorLocator())
 
 ax[0].set_title(
-    "Secondary eclipse SNR for a Jupiter size planet orbiting\na Sun like star with $T_\mathrm{eff}=5000$, assuming a $5s$ integration\ntime using the F444W $4.5\mu m$ filter",
+    "Secondary eclipse SNR for a Jupiter size planet orbiting\na Sun like star with $T_\mathrm{eff}=5000$K, assuming a $5s$ integration\ntime using the F444W $4.5\mu m$ filter",
     fontsize=12,
     pad=20,
 )
